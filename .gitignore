@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production builds
+dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+
+# Env configurations
+.env
+.env.*
+*.local
+
+# System files
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# IDEs and Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# TypeScript Build Info
+*.tsbuildinfo
