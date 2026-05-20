@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 from typing import List
+from uuid import UUID
 from datetime import datetime, timezone
-from app.schemas.insights_schema import InsightCreate, InsightResponse
+from app.schemas.insights_schema import InsightCreate, InsightResponse, AdvancedAIInsightsResponse
 from app.middleware.auth_middleware import get_current_user
+from app.services.insights_service import InsightsService
 
 router = APIRouter(prefix="/insights", tags=["Insights"])
 
@@ -41,3 +43,22 @@ async def get_session_insights(session_id: str, current_user: dict = Depends(get
             "created_at": datetime.now(timezone.utc)
         }
     ]
+
+@router.get("/generate/{user_id}", response_model=AdvancedAIInsightsResponse, status_code=status.HTTP_200_OK)
+async def generate_user_insights(user_id: UUID):
+    """
+    Generate advanced hybrid AI insights (statistical trends, pattern detection, anomalies, composite scoring, and NLP recommendations) for a specific user.
+    """
+    # TODO: Protect this endpoint with JWT before production.
+    # TODO: Replace hybrid heuristics with trained ML model later.
+    # TODO: Add NLP generation model later.
+    # TODO: Add RL-based personalized coaching later.
+    try:
+        insights = await InsightsService.generate_hybrid_insights(user_id)
+        return insights
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred while generating AI insights: {str(e)}"
+        )
+
