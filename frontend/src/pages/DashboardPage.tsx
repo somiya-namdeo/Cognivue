@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { getCurrentUserProfile, getLocalSession, getDashboardAnalytics } from '../services/api';
+import type { DashboardAnalytics } from '../services/api';
 import { MetricCards } from '../components/MetricCards';
 import { 
   AttentionLoadChart, 
@@ -18,25 +20,55 @@ import {
   Globe, 
   Settings,
   Cpu,
-  ArrowUpRight
+  ArrowUpRight,
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
+  const profile = getCurrentUserProfile();
   const location = useLocation();
-  const [activeItem, setActiveItem] = useState(() => {
-    return (location.state as any)?.activeTab || 'Dashboard';
-  });
+  const stateActiveTab = (location.state as { activeTab?: string } | null)?.activeTab;
+
+  const [activeItem, setActiveItem] = useState(stateActiveTab || 'Dashboard');
+  const [prevActiveTab, setPrevActiveTab] = useState(stateActiveTab);
+
+  if (stateActiveTab !== prevActiveTab) {
+    setPrevActiveTab(stateActiveTab);
+    setActiveItem(stateActiveTab || 'Dashboard');
+  }
 
   const [isSyncing, setIsSyncing] = useState(true);
+  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const fetchAnalytics = async () => {
+    try {
+      setIsLoading(true);
+      setApiError(null);
+      
+      const session = getLocalSession();
+      if (!session.userId) {
+        setApiError("User ID not found. Please log in again.");
+        setIsLoading(false);
+        setIsSyncing(false);
+        return;
+      }
+      
+      const data = await getDashboardAnalytics(session.userId);
+      setAnalytics(data);
+    } catch (err: any) {
+      console.error("Failed to fetch dashboard analytics:", err);
+      setApiError("Unable to load dashboard analytics. Please make sure the backend server is running.");
+    } finally {
+      setIsLoading(false);
+      setIsSyncing(false);
+    }
+  };
 
   useEffect(() => {
-    if ((location.state as any)?.activeTab) {
-      setActiveItem((location.state as any).activeTab);
-    }
-    const timer = setTimeout(() => {
-      setIsSyncing(false);
-    }, 700);
-    return () => clearTimeout(timer);
+    fetchAnalytics();
   }, [location.state]);
 
   // Animation variants for panel transitions
@@ -125,6 +157,118 @@ export const DashboardPage: React.FC = () => {
         if (isSyncing) {
           return renderDashboardSkeleton();
         }
+
+        if (apiError !== null) {
+          return (
+            <motion.div 
+              key="dashboard-error"
+              variants={fadeVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="flex flex-col gap-6 sm:gap-8"
+            >
+              {/* Header welcome banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-left">
+                <div>
+                  <h2 className="font-sans text-3xl font-extrabold tracking-tight text-white select-none">
+                    Welcome back, {profile.displayName}
+                  </h2>
+                  <p className="text-sm font-semibold text-zinc-450 mt-1">
+                    Unable to retrieve latest statistics.
+                  </p>
+                </div>
+              </div>
+
+              {/* Error state glass card */}
+              <div className="rounded-2xl border border-red-500/10 bg-slate-950/20 p-8 text-center backdrop-blur-md relative overflow-hidden min-h-[300px] flex flex-col items-center justify-center select-none">
+                <div className="absolute inset-0 bg-gradient-to-tr from-red-500/2 to-transparent pointer-events-none" />
+                
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10 border border-red-500/35 shadow-[0_0_15px_rgba(239,68,68,0.2)] mb-4">
+                  <AlertTriangle className="h-6 w-6 text-red-400 animate-bounce" />
+                </div>
+                
+                <h3 className="text-xl font-bold text-white mb-2">Connection Error</h3>
+                <p className="text-sm text-zinc-400 max-w-md mb-6 leading-relaxed">
+                  {apiError}
+                </p>
+                
+                <button 
+                  onClick={fetchAnalytics}
+                  className="glow-btn inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all duration-300 hover:scale-[1.02]"
+                >
+                  <span>Retry Connection</span>
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              </div>
+            </motion.div>
+          );
+        }
+
+        if (analytics && analytics.total_sessions === 0) {
+          return (
+            <motion.div 
+              key="dashboard-empty"
+              variants={fadeVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="flex flex-col gap-6 sm:gap-8"
+            >
+              {/* Header welcome banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-left">
+                <div>
+                  <h2 className="font-sans text-3xl font-extrabold tracking-tight text-white select-none">
+                    Welcome back, {profile.displayName}
+                  </h2>
+                  <p className="text-sm font-semibold text-zinc-450 mt-1">
+                    Start a session to generate analytics.
+                  </p>
+                </div>
+                <button 
+                  onClick={fetchAnalytics}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 self-start sm:self-center px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white border border-white/5 hover:border-white/10 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-200 select-none disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span>Refresh data</span>
+                </button>
+              </div>
+
+              {/* Overview metric cards showing defaults */}
+              <MetricCards 
+                averageFocus={0}
+                averageCognitiveLoad={0}
+                averageProductivity={0}
+                totalFocusMinutes={0}
+                averageFatigueScore={0}
+              />
+
+              {/* Empty state glass card */}
+              <div className="rounded-2xl border border-white/5 bg-slate-950/20 p-8 text-center backdrop-blur-md relative overflow-hidden min-h-[300px] flex flex-col items-center justify-center select-none">
+                <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/2 via-violet-500/2 to-transparent pointer-events-none" />
+                
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/35 shadow-[0_0_15px_rgba(6,182,212,0.2)] mb-4">
+                  <Sparkles className="h-6 w-6 text-cyan-400 animate-pulse" />
+                </div>
+                
+                <h3 className="text-xl font-bold text-white mb-2">No Cognitive Data Yet</h3>
+                <p className="text-sm text-zinc-400 max-w-md mb-6 leading-relaxed">
+                  Start a live monitoring session to generate your first cognitive analytics.
+                </p>
+                
+                <button 
+                  onClick={() => setActiveItem('Live Monitoring')}
+                  className="glow-btn inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all duration-300 hover:scale-[1.02]"
+                >
+                  <span>Go to Live Monitoring</span>
+                  <Activity className="h-4 w-4" />
+                </button>
+              </div>
+            </motion.div>
+          );
+        }
+
         return (
           <motion.div 
             key="dashboard"
@@ -135,33 +279,48 @@ export const DashboardPage: React.FC = () => {
             className="flex flex-col gap-6 sm:gap-8"
           >
             {/* 1. Header welcome banner */}
-            <div className="flex flex-col text-left">
-              <h2 className="font-sans text-3xl font-extrabold tracking-tight text-white select-none">
-                Welcome back, Aarav
-              </h2>
-              <p className="text-sm font-semibold text-zinc-450 mt-1">
-                Your cognitive performance is up{' '}
-                <span className="text-cyan-400 font-extrabold">12%</span> this week.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-left">
+              <div>
+                <h2 className="font-sans text-3xl font-extrabold tracking-tight text-white select-none">
+                  Welcome back, {profile.displayName}
+                </h2>
+                <p className="text-sm font-semibold text-zinc-450 mt-1">
+                  Here is your cognitive performance overview.
+                </p>
+              </div>
+              <button 
+                onClick={fetchAnalytics}
+                disabled={isLoading}
+                className="flex items-center gap-2 self-start sm:self-center px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white border border-white/5 hover:border-white/10 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-200 select-none disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                <span>Refresh data</span>
+              </button>
             </div>
 
             {/* 2. Overview metric cards */}
-            <MetricCards />
+            <MetricCards 
+              averageFocus={analytics?.average_focus}
+              averageCognitiveLoad={analytics?.average_cognitive_load}
+              averageProductivity={analytics?.average_productivity}
+              totalFocusMinutes={analytics?.total_focus_minutes}
+              averageFatigueScore={analytics?.average_fatigue_score}
+            />
 
             {/* 3. Primary row: Attention vs load & coach insights */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
               <div className="lg:col-span-8 w-full">
-                <AttentionLoadChart />
+                <AttentionLoadChart data={analytics?.focus_trend} />
               </div>
               <div className="lg:col-span-4 w-full">
-                <InsightsPanel />
+                <InsightsPanel insights={analytics?.coach_insights} />
               </div>
             </div>
 
             {/* 4. Secondary row: Focus vs productivity & realtime timeline */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
               <div className="lg:col-span-6 w-full">
-                <FocusProductivityChart />
+                <FocusProductivityChart data={analytics?.productivity_trend} />
               </div>
               <div className="lg:col-span-6 w-full">
                 <RealtimeLoadChart />
@@ -169,7 +328,7 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {/* 5. Tertiary row: Recent sessions history table */}
-            <SessionsTable />
+            <SessionsTable sessions={analytics?.recent_sessions} />
 
           </motion.div>
         );

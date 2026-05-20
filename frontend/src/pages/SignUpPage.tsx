@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, User, Brain, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { signupUser } from '../services/api';
 
 export const SignUpPage = () => {
   const navigate = useNavigate();
@@ -10,11 +11,29 @@ export const SignUpPage = () => {
   const [password, setPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Sign up submitted:', { fullName, email, password, agreeTerms });
-    navigate('/dashboard');
+    if (!agreeTerms) return;
+    setError(null);
+    setSuccess(null);
+    setIsLoading(true);
+
+    try {
+      await signupUser(fullName, email, password);
+      setSuccess('Account created successfully! Redirecting to login...');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred during sign up.';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const benefits = [
@@ -109,10 +128,11 @@ export const SignUpPage = () => {
                 <input
                   type="text"
                   required
+                  disabled={isLoading}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Aarav Reddy"
-                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] text-sm text-white placeholder:text-zinc-550 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium"
+                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] text-sm text-white placeholder:text-zinc-550 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium disabled:opacity-50"
                 />
               </div>
             </div>
@@ -127,10 +147,11 @@ export const SignUpPage = () => {
                 <input
                   type="email"
                   required
+                  disabled={isLoading}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@cognivue.ai"
-                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] text-sm text-white placeholder:text-zinc-550 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium"
+                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] text-sm text-white placeholder:text-zinc-550 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium disabled:opacity-50"
                 />
               </div>
             </div>
@@ -145,10 +166,11 @@ export const SignUpPage = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
+                  disabled={isLoading}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
-                  className="w-full pl-11 pr-11 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] text-sm text-white placeholder:text-zinc-555 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium"
+                  className="w-full pl-11 pr-11 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] text-sm text-white placeholder:text-zinc-555 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium disabled:opacity-50"
                 />
                 <button
                   type="button"
@@ -164,12 +186,33 @@ export const SignUpPage = () => {
               </div>
             </div>
 
+            {/* Error/Success Messages */}
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 rounded-xl border border-red-500/20 bg-red-950/20 text-xs font-semibold text-red-400 select-none text-left"
+              >
+                {error}
+              </motion.div>
+            )}
+            {success && (
+              <motion.div 
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-950/20 text-xs font-semibold text-emerald-400 select-none text-left"
+              >
+                {success}
+              </motion.div>
+            )}
+
             {/* Terms checkbox */}
             <div className="flex items-start text-xs pt-0.5 select-none">
               <label className="flex items-start gap-2 cursor-pointer font-medium leading-relaxed text-zinc-400 hover:text-zinc-355">
                 <input
                   type="checkbox"
                   required
+                  disabled={isLoading}
                   checked={agreeTerms}
                   onChange={(e) => setAgreeTerms(e.target.checked)}
                   className="mt-0.5 rounded border-white/10 bg-white/[0.02] text-cyan-500 focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5 cursor-pointer shrink-0"
@@ -183,10 +226,20 @@ export const SignUpPage = () => {
             {/* Create Account Button */}
             <button
               type="submit"
-              className="glow-btn w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 py-3 text-sm font-semibold text-white shadow-[0_0_12px_rgba(6,182,212,0.08)] hover:shadow-[0_0_16px_rgba(6,182,212,0.15)] hover:scale-[1.005] active:scale-[0.995] transition-all"
+              disabled={isLoading || !agreeTerms}
+              className="glow-btn w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 py-3 text-sm font-semibold text-white shadow-[0_0_12px_rgba(6,182,212,0.08)] hover:shadow-[0_0_16px_rgba(6,182,212,0.15)] hover:scale-[1.005] active:scale-[0.995] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              Create account
-              <ArrowRight className="h-4 w-4" />
+              {isLoading ? (
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span>Creating account...</span>
+                </div>
+              ) : (
+                <>
+                  Create account
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </button>
           </form>
 

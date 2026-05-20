@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-dotenv
+supabase
+pyjwt
+passlib[bcrypt]
+python-multipart
+pydantic
+pydantic-settings

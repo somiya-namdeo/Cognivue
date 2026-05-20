@@ -61,10 +61,17 @@ const initialRealtimeData = [
   { min: 28, load: 44 }, { min: 29, load: 38 },
 ];
 
-// ==========================================
-// PREMIUM CUSTOM TOOLTIP
-// ==========================================
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    name: string;
+    value: number | string;
+    color?: string;
+  }>;
+  label?: string | number;
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-xl border border-white/10 bg-slate-950/90 p-3 shadow-2xl backdrop-blur-md text-left select-none">
@@ -72,7 +79,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           Time: {label}
         </span>
         <div className="flex flex-col gap-1">
-          {payload.map((item: any, index: number) => (
+          {payload.map((item, index: number) => (
             <div key={index} className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.color }} />
               <span className="text-xs font-semibold text-zinc-400">
@@ -93,7 +100,17 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 // ==========================================
 // 1. DUAL CURVED AREA CHART (Attention vs Load)
 // ==========================================
-export const AttentionLoadChart: React.FC = () => {
+interface AttentionLoadChartProps {
+  data?: {
+    time: string;
+    focus: number;
+    load: number;
+  }[];
+}
+
+export const AttentionLoadChart: React.FC<AttentionLoadChartProps> = ({ data }) => {
+  const chartData = data && data.length > 0 ? data : attentionLoadData;
+
   return (
     <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md shadow-lg select-none text-left relative overflow-hidden flex flex-col h-[380px]">
       
@@ -123,7 +140,7 @@ export const AttentionLoadChart: React.FC = () => {
       {/* Chart container */}
       <div className="flex-1 w-full text-xs">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={attentionLoadData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
             <defs>
               <linearGradient id="glowCyan" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.04} />
@@ -181,10 +198,19 @@ export const AttentionLoadChart: React.FC = () => {
   );
 };
 
-// ==========================================
-// 2. FOCUS VS PRODUCTIVITY (Weekly Bar Chart)
-// ==========================================
-export const FocusProductivityChart: React.FC = () => {
+interface FocusProductivityChartProps {
+  data?: {
+    day?: string;
+    date?: string;
+    focus: number;
+    productivity: number;
+  }[];
+}
+
+export const FocusProductivityChart: React.FC<FocusProductivityChartProps> = ({ data }) => {
+  const chartData = (data && data.length > 0 ? data : weeklyProductivityData) as any[];
+  const xKey = chartData[0] && 'date' in chartData[0] ? 'date' : 'day';
+
   return (
     <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md shadow-lg select-none text-left relative overflow-hidden flex flex-col h-[320px]">
 
@@ -201,10 +227,10 @@ export const FocusProductivityChart: React.FC = () => {
       {/* Chart container */}
       <div className="flex-1 w-full text-xs">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={weeklyProductivityData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }} barGap={6}>
+          <BarChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }} barGap={6}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.02)" vertical={false} />
             <XAxis 
-              dataKey="day" 
+              dataKey={xKey} 
               stroke="#4b5563" 
               tickLine={false} 
               axisLine={false}

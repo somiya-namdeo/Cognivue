@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { 
   Download, 
   Code, 
@@ -20,7 +21,7 @@ export const ExtensionPage: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
 
-  const containerVariants: any = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
     show: {
       opacity: 1,

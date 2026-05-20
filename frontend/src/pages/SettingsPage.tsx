@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { 
   Mail, 
   MapPin, 
@@ -15,10 +16,12 @@ import {
   Sparkles
 } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { getCurrentUserProfile } from '../services/api';
 
 export const SettingsPage: React.FC = () => {
+  const profile = getCurrentUserProfile();
   const [activeItem, setActiveItem] = useState('Settings');
-  const [email, setEmail] = useState('aarav@cognivue.ai');
+  const [email, setEmail] = useState(() => profile.email);
   const [location, setLocation] = useState('Bangalore, India');
   const [webcamEnabled, setWebcamEnabled] = useState(true);
   const [shareData, setShareData] = useState(false);
@@ -26,7 +29,7 @@ export const SettingsPage: React.FC = () => {
   const [showNotification, setShowNotification] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
-  const containerVariants: any = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
     show: {
       opacity: 1,
@@ -83,11 +86,11 @@ export const SettingsPage: React.FC = () => {
               <div className="flex items-center gap-4.5 mb-6">
                 {/* Custom Avatar Circle */}
                 <div className="h-16 w-16 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white text-[22px] font-bold tracking-tight shadow-[0_0_15px_rgba(139,92,246,0.2)]">
-                  AR
+                  {profile.initials}
                 </div>
                 
                 <div className="flex flex-col text-left">
-                  <h4 className="text-[20px] font-semibold text-white tracking-tight leading-none">Aarav Reddy</h4>
+                  <h4 className="text-[20px] font-semibold text-white tracking-tight leading-none">{profile.displayName}</h4>
                 </div>
               </div>
 

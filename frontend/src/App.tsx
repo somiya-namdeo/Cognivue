@@ -13,6 +13,7 @@ import { ExtensionPage } from './pages/ExtensionPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ScrollToTop } from './components/ScrollToTop';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -85,12 +86,17 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignUpPage />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/live-monitoring" element={<LiveMonitoringPage />} />
-            <Route path="/ai-insights" element={<AIInsightsPage />} />
-            <Route path="/sessions" element={<SessionsPage />} />
-            <Route path="/extension" element={<ExtensionPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/live-monitoring" element={<LiveMonitoringPage />} />
+              <Route path="/ai-insights" element={<AIInsightsPage />} />
+              <Route path="/sessions" element={<SessionsPage />} />
+              <Route path="/extension" element={<ExtensionPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Router>

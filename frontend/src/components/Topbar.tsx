@@ -1,11 +1,13 @@
 import React from 'react';
 import { Search, Bell, Menu } from 'lucide-react';
+import { getCurrentUserProfile } from '../services/api';
 
 interface TopbarProps {
   onMenuToggle: () => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({ onMenuToggle }) => {
+  const profile = getCurrentUserProfile();
   return (
     <header className="sticky top-0 z-30 h-16 w-full border-b border-white/[0.04] bg-[#03030b]/40 backdrop-blur-md flex items-center justify-between px-6 sm:px-8">
       
@@ -46,12 +48,12 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuToggle }) => {
         <div className="flex items-center gap-3 pl-3 border-l border-white/[0.04]">
           {/* Avatar Container */}
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-white/10 flex items-center justify-center text-xs font-bold text-zinc-300">
-            AR
+            {profile.initials}
           </div>
           
           {/* Text Labels */}
           <div className="hidden md:flex flex-col text-left select-none">
-            <span className="text-xs font-semibold text-zinc-100">Aarav Reddy</span>
+            <span className="text-xs font-semibold text-zinc-100">{profile.displayName}</span>
           </div>
         </div>
 

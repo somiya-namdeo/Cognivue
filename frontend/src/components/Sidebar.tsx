@@ -10,6 +10,7 @@ import {
   Settings, 
   LogOut 
 } from 'lucide-react';
+import { clearActiveSession } from '../services/api';
 
 interface SidebarProps {
   activeItem: string;
@@ -130,7 +131,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Sign Out Action */}
         <button
-          onClick={() => navigate('/')}
+          onClick={() => {
+            clearActiveSession();
+            navigate('/login');
+          }}
           className="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-zinc-500 hover:text-red-400 transition-colors w-full text-left"
         >
           <LogOut className="h-4.5 w-4.5" />

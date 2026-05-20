@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { 
   Sparkles, 
@@ -18,7 +19,7 @@ import {
 interface Recommendation {
   title: string;
   recommendation: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string }>;
   iconColor: string;
   iconBg: string;
 }
@@ -40,7 +41,7 @@ export const AIInsightsPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState('AI Insights');
 
   // Stagger animate parent setup
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
@@ -50,9 +51,9 @@ export const AIInsightsPage: React.FC = () => {
     }
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' as any } }
+    show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } }
   };
 
   // 1. Smart Recommendations List (6 items representing screenshots)

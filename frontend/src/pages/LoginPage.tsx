@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Brain, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { loginUser, saveSession } from '../services/api';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
@@ -9,11 +10,26 @@ export const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login submitted:', { email, password, rememberMe });
-    navigate('/dashboard');
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const data = await loginUser(email, password);
+      // Save session inside localStorage
+      saveSession(data);
+      // Redirect to dashboard
+      navigate('/dashboard');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Invalid email or password.';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -100,10 +116,11 @@ export const LoginPage = () => {
                 <input
                   type="email"
                   required
+                  disabled={isLoading}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@cognivue.ai"
-                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] text-sm text-white placeholder:text-zinc-550 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium"
+                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] text-sm text-white placeholder:text-zinc-555 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium disabled:opacity-50"
                 />
               </div>
             </div>
@@ -118,10 +135,11 @@ export const LoginPage = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
+                  disabled={isLoading}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-11 pr-11 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] text-sm text-white placeholder:text-zinc-555 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium"
+                  className="w-full pl-11 pr-11 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] text-sm text-white placeholder:text-zinc-555 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium disabled:opacity-50"
                 />
                 <button
                   type="button"
@@ -137,14 +155,26 @@ export const LoginPage = () => {
               </div>
             </div>
 
+            {/* Error Message Alert */}
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 rounded-xl border border-red-500/20 bg-red-950/20 text-xs font-semibold text-red-400 select-none text-left"
+              >
+                {error}
+              </motion.div>
+            )}
+
             {/* Remember Me & Forgot Password */}
             <div className="flex items-center justify-between text-xs pt-0.5 select-none">
               <label className="flex items-center gap-2 cursor-pointer font-medium text-zinc-400 hover:text-zinc-355">
                 <input
                   type="checkbox"
+                  disabled={isLoading}
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-white/10 bg-white/[0.02] text-cyan-500 focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5 cursor-pointer"
+                  className="rounded border-white/10 bg-white/[0.02] text-cyan-500 focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5 cursor-pointer disabled:opacity-50"
                 />
                 Remember me
               </label>
@@ -156,10 +186,20 @@ export const LoginPage = () => {
             {/* Sign In Button */}
             <button
               type="submit"
-              className="glow-btn w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 py-3 text-sm font-semibold text-white shadow-[0_0_12px_rgba(6,182,212,0.08)] hover:shadow-[0_0_16px_rgba(6,182,212,0.15)] hover:scale-[1.005] active:scale-[0.995] transition-all"
+              disabled={isLoading}
+              className="glow-btn w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 py-3 text-sm font-semibold text-white shadow-[0_0_12px_rgba(6,182,212,0.08)] hover:shadow-[0_0_16px_rgba(6,182,212,0.15)] hover:scale-[1.005] active:scale-[0.995] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              Sign in
-              <ArrowRight className="h-4 w-4" />
+              {isLoading ? (
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span>Signing in...</span>
+                </div>
+              ) : (
+                <>
+                  Sign in
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </button>
           </form>
 
