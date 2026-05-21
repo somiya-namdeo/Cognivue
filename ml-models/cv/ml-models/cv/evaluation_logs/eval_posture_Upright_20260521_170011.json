@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-05-21T17:00:11.426196",
+  "evaluation_category": "posture",
+  "expected_label": "Upright",
+  "total_samples": 20,
+  "correct_samples": 18,
+  "accuracy_percent": 90.0,
+  "confusion_statistics": {
+    "Unknown": 1,
+    "Upright": 18,
+    "Slouched": 1
+  }
+}

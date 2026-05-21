@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-05-21T16:58:50.318681",
+  "evaluation_category": "attention",
+  "expected_label": "Focused",
+  "total_samples": 23,
+  "correct_samples": 23,
+  "accuracy_percent": 100.0,
+  "confusion_statistics": {
+    "Focused": 23
+  }
+}

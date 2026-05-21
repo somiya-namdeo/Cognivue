@@ -14,6 +14,8 @@ class SessionEndRequest(BaseModel):
     cognitive_load: int = Field(default=0, ge=0, le=100)
     fatigue_level: Literal["Low", "Medium", "High"] = Field(default="Low")
     productivity_score: int = Field(default=0, ge=0, le=100)
+    # Optional end_time from frontend; ignored server‑side
+    end_time: Optional[str] = None
 
 class SessionResponse(BaseModel):
     id: UUID

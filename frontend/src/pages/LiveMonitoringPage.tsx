@@ -27,10 +27,10 @@ import {
   startSession,
   endSession,
   getActiveSession,
-  addMetric,
+  getLatestMetric,
   getSessionMetrics
 } from '../services/api';
-import type { MetricResponse, MetricCreateRequest } from '../services/api';
+import type { MetricResponse } from '../services/api';
 
 // ==========================================
 // 1. SMOOTH ANIMATED COUNTER HOOK
@@ -85,6 +85,7 @@ const LiveTooltip = ({ active, payload }: LiveTooltipProps) => {
 export const LiveMonitoringPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState('Live Monitoring');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [sessionStartTime, setSessionStartTime] = useState<string | null>(null);
   const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -92,6 +93,7 @@ export const LiveMonitoringPage: React.FC = () => {
   const [latestMetric, setLatestMetric] = useState<MetricResponse | null>(null);
   const [focusStream, setFocusStream] = useState<{ time: string; focus: number; cognitiveLoad?: number }[]>([]);
   const [hasBackendOfflineWarning, setHasBackendOfflineWarning] = useState<boolean>(false);
+const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offline'>('Waiting');
 
   // Responsive window tracking for particle density control (Dynamic Particle Count)
   const [windowWidth, setWindowWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -144,10 +146,9 @@ export const LiveMonitoringPage: React.FC = () => {
         const activeSess = await getActiveSession(session.userId);
         
         if (activeSess && activeSess.id) {
-          // If session is already ended, automatically clear from localStorage (Requirement 7)
+          // If session is already ended, clear active session ID
           if (activeSess.end_time) {
             localStorage.removeItem('active_session_id');
-            localStorage.removeItem('active_session_start');
             setIsSessionActive(false);
             setActiveSessionId(null);
             setIsLoading(false);
@@ -159,9 +160,9 @@ export const LiveMonitoringPage: React.FC = () => {
           localStorage.setItem('active_session_id', activeSess.id);
           setIsSessionActive(true);
 
-          // Calculate elapsed time from precise start timestamp
+          // Store start timestamp in state (no extra localStorage key)
           const startTimestamp = activeSess.start_time;
-          localStorage.setItem('active_session_start', startTimestamp);
+          setSessionStartTime(startTimestamp);
           const elapsed = Math.floor((Date.now() - new Date(startTimestamp).getTime()) / 1000);
           setElapsedSeconds(elapsed >= 0 ? elapsed : 0);
 
@@ -187,7 +188,6 @@ export const LiveMonitoringPage: React.FC = () => {
                   cognitiveLoad: m.cognitive_load
                 };
               });
-              // Keep only latest 30 points to avoid memory growth (Requirement 6)
               setFocusStream(historyData.slice(-30));
             } else {
               setFocusStream([{ time: 'Just now', focus: 85, cognitiveLoad: 50 }]);
@@ -198,10 +198,8 @@ export const LiveMonitoringPage: React.FC = () => {
           }
         }
       } catch (err: any) {
-        // If 404 was returned, that's fine (no active session). Otherwise, backend is offline.
         if (err.message && err.message.includes('No active session found')) {
           localStorage.removeItem('active_session_id');
-          localStorage.removeItem('active_session_start');
         } else {
           console.error('Error fetching active session:', err);
           setErrorMessage('FastAPI backend service is offline. Please start your backend server.');
@@ -223,11 +221,10 @@ export const LiveMonitoringPage: React.FC = () => {
       return;
     }
 
-    // Run a 1-second interval to increment session duration cleanly (Requirement 1)
+    // 1‑second interval using the stored session start time from state
     const timer = setInterval(() => {
-      const startTimestamp = localStorage.getItem('active_session_start');
-      if (startTimestamp) {
-        const elapsed = Math.floor((Date.now() - new Date(startTimestamp).getTime()) / 1000);
+      if (sessionStartTime) {
+        const elapsed = Math.floor((Date.now() - new Date(sessionStartTime).getTime()) / 1000);
         setElapsedSeconds(elapsed >= 0 ? elapsed : 0);
       } else {
         setElapsedSeconds((prev) => prev + 1);
@@ -235,7 +232,7 @@ export const LiveMonitoringPage: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isSessionActive]);
+  }, [isSessionActive, sessionStartTime]);
 
   // ==========================================
   // 3. SIMULATED LIVE TELEMETRY STREAM ENGINE
@@ -243,105 +240,47 @@ export const LiveMonitoringPage: React.FC = () => {
   useEffect(() => {
     if (!isSessionActive || !activeSessionId) return;
 
-    const generateAndUploadMetric = async () => {
-      // Fetch latest values for smoothing calculations
-      const lastM = latestMetricRef.current;
-      const prevFocus = lastM ? lastM.focus_score : 85;
-      const prevFatigue = lastM ? lastM.fatigue_score : 20;
-      const prevCognitive = lastM ? lastM.cognitive_load : 55;
-
-      // Telemetry smoothing: previous focus score ± minor drift (Requirement 5)
-      // Keep transitions believable and human-like with very gentle, natural drift bounds
-      const focusDrift = Math.round((Math.random() - 0.5) * 4); // drift between -2 and +2
-      const focus_score = Math.max(72, Math.min(96, prevFocus + focusDrift));
-
-      const fatigueDrift = Math.round((Math.random() - 0.5) * 2); // drift between -1 and +1
-      const fatigue_score = Math.max(12, Math.min(42, prevFatigue + fatigueDrift));
-
-      const loadDrift = Math.round((Math.random() - 0.5) * 4); // drift between -2 and +2
-      const cognitive_load = Math.max(48, Math.min(78, prevCognitive + loadDrift));
-
-      // Range boundaries: blink rate 10 to 22
-      const blink_rate = Math.floor(Math.random() * 13) + 10; 
-
-      // Gaze status weighted randomized options correctly annotated with exact union literals
-      const gazeRand = Math.random();
-      const gaze_status: 'On Screen' | 'Off Screen' | 'Uncertain' = gazeRand < 0.88 ? 'On Screen' : (gazeRand < 0.96 ? 'Off Screen' : 'Uncertain');
-
-      // Posture status weighted randomized options correctly annotated with exact union literals
-      const postureRand = Math.random();
-      const posture_status: 'Upright' | 'Slouched' | 'Unknown' = postureRand < 0.85 ? 'Upright' : (postureRand < 0.96 ? 'Slouched' : 'Unknown');
-
-      // Attention state weighted randomized options correctly annotated with exact union literals
-      const attentionRand = Math.random();
-      const attention_state: 'Focused' | 'Distracted' | 'Neutral' = attentionRand < 0.85 ? 'Focused' : (attentionRand < 0.96 ? 'Neutral' : 'Distracted');
-
-      // TODO: Replace active tab placeholder with extension telemetry later
-      const active_tab = 'docs.cognivue.ai';
-
-      // Assemble payload - correctly typed as MetricCreateRequest
-      // TODO: Replace simulated telemetry with MediaPipe integration later
-      const metricData: MetricCreateRequest = {
-        session_id: activeSessionId,
-        blink_rate,
-        gaze_status,
-        posture_status,
-        attention_state,
-        active_tab,
-        cognitive_load,
-        focus_score,
-        fatigue_score
-      };
-
+    const fetchAndUpdateMetric = async () => {
       try {
-        const res = await addMetric(metricData);
-        
-        // Success: store results and clear any inline offline warnings
-        setLatestMetric(res);
-        setFocusHistory(prev => [...prev, focus_score]);
-        setLoadHistory(prev => [...prev, cognitive_load]);
-        setFatigueHistory(prev => [...prev, fatigue_score]);
+        const metric = await getLatestMetric(activeSessionId);
+        // Successful fetch → update UI
+        setLatestMetric(metric);
+        setFocusHistory(prev => [...prev, metric.focus_score]);
+        setLoadHistory(prev => [...prev, metric.cognitive_load]);
+        setFatigueHistory(prev => [...prev, metric.fatigue_score]);
+        setStreamStatus('Connected');
+        setErrorMessage(null);
+        setHasBackendOfflineWarning(false);
 
-        if (hasBackendOfflineWarning) {
-          setHasBackendOfflineWarning(false);
-          setErrorMessage(null);
-        }
-
-        // Push new point into chart data stream
-        setFocusStream((prev) => {
-          const nextData = [...prev, { time: 'Just now', focus: focus_score, cognitiveLoad: cognitive_load }];
-          
-          // Limit stream items size to maximum 30 to avoid memory leak (Requirement 6)
-          if (nextData.length > 30) {
-            nextData.shift();
-          }
-
-          // Restore relative scale labels
+        // Update chart stream
+        setFocusStream(prev => {
+          const nextData = [...prev, { time: 'Just now', focus: metric.focus_score, cognitiveLoad: metric.cognitive_load }];
+          if (nextData.length > 30) nextData.shift();
           return nextData.map((d, idx) => {
             if (idx === nextData.length - 1) return d;
-            return {
-              ...d,
-              time: `${nextData.length - 1 - idx}m ago`
-            };
+            return { ...d, time: `${nextData.length - 1 - idx}m ago` };
           });
         });
-      } catch (err) {
-        // Backend offline throttling (Requirement 2):
-        // Show one single inline warning card and retry silently every 5 seconds.
-        console.error('Failed to log telemetry metric:', err);
+      } catch (err: any) {
+        console.error('Failed to fetch latest metric:', err);
+        // If 404, treat as waiting; otherwise offline
+        const isNotFound = err?.message?.includes('404') || err?.message?.toLowerCase()?.includes('not found');
+        if (!latestMetricRef.current || isNotFound) {
+          setStreamStatus('Waiting');
+        } else {
+          setStreamStatus('Offline');
+        }
         if (!hasBackendOfflineWarning) {
           setHasBackendOfflineWarning(true);
-          setErrorMessage('Telemetry upload failed: FastAPI backend is offline. Retrying silently in background...');
+          setErrorMessage('Unable to fetch CV metrics: backend offline or no data yet.');
         }
       }
     };
 
-    // Execute immediately on startup
-    generateAndUploadMetric();
-
-    // 5-second interval timer (Requirement 1)
-    const interval = setInterval(generateAndUploadMetric, 5000);
-
+    // Initial fetch
+    fetchAndUpdateMetric();
+    // Poll every 4 seconds (3‑5s window)
+    const interval = setInterval(fetchAndUpdateMetric, 4000);
     return () => clearInterval(interval);
   }, [isSessionActive, activeSessionId, hasBackendOfflineWarning]);
 
@@ -365,7 +304,7 @@ export const LiveMonitoringPage: React.FC = () => {
       localStorage.setItem('active_session_id', res.id);
       
       const startTimestamp = res.start_time || new Date().toISOString();
-      localStorage.setItem('active_session_start', startTimestamp);
+      setSessionStartTime(startTimestamp);
       
       setLatestMetric(null);
       setElapsedSeconds(0);
@@ -465,13 +404,13 @@ export const LiveMonitoringPage: React.FC = () => {
         consistency
       });
 
-      // Clear session values from localStorage
+      // Clear session identifier from localStorage
       localStorage.removeItem('active_session_id');
-      localStorage.removeItem('active_session_start');
       
       // Reset page states
       setIsSessionActive(false);
       setActiveSessionId(null);
+      setSessionStartTime(null);
       setLatestMetric(null);
       setElapsedSeconds(0);
       setHasBackendOfflineWarning(false);
@@ -479,6 +418,11 @@ export const LiveMonitoringPage: React.FC = () => {
     } catch (err: any) {
       console.error('Failed to end session cleanly:', err);
       setErrorMessage(err.message || 'Failed to end session cleanly. Backend service offline.');
+      localStorage.removeItem('active_session_id');
+      localStorage.removeItem('active_session_start');
+      setIsSessionActive(false);
+      setActiveSessionId(null);
+      setSessionStartTime(null);
     } finally {
       setIsLoading(false);
     }
@@ -679,48 +623,71 @@ export const LiveMonitoringPage: React.FC = () => {
               <div className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 border-cyan-500/20 pointer-events-none z-10" />
               <div className="absolute bottom-4 right-4 w-4 h-4 border-b-2 border-r-2 border-cyan-500/20 pointer-events-none z-10" />
               
-              {/* Top row controls */}
-              <div className="flex items-center justify-between p-5 relative z-10">
-                {/* UPGRADED LIVE STATUS AND TIMER (Requirement 2 & 9) */}
-                <div className="flex items-center gap-2.5 select-none">
-                  {isSessionActive ? (
-                    <div className="flex items-center gap-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 shadow-[0_0_12px_rgba(244,63,94,0.12)]">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500" />
-                      </span>
-                      <span className="text-[9px] font-black tracking-wider font-mono text-rose-400 uppercase leading-none">
-                        LIVE
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 rounded-full bg-zinc-550/10 border border-zinc-500/10 px-2.5 py-0.5">
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-zinc-550" />
-                      <span className="text-[9px] font-black tracking-wider font-mono text-zinc-500 uppercase leading-none">
-                        STANDBY
-                      </span>
-                    </div>
-                  )}
-
-                  {isSessionActive && (
-                    <div className="flex items-center rounded-full bg-white/[0.03] border border-white/5 px-2.5 py-0.5 text-[9px] font-bold text-zinc-350 font-mono tracking-tight shadow-[0_2px_8px_rgba(0,0,0,0.2)]">
-                      <span className="text-zinc-500 mr-1 select-none">T+</span>
-                      <span className="tabular-nums font-bold text-zinc-100 text-[10px] tracking-tight">{formatTime(elapsedSeconds)}</span>
-                    </div>
-                  )}
-
-                  {isSessionActive && (
-                    <span className="hidden md:inline-flex text-[8px] font-bold text-cyan-400/80 tracking-wider bg-cyan-500/5 border border-cyan-500/10 px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.05)]">
-                      Cognitive inference active
-                    </span>
-                  )}
+          {/* Top row controls */}
+          <div className="flex items-center justify-between p-5 relative z-10">
+            {/* UPGRADED LIVE STATUS AND TIMER (Requirement 2 & 9) */}
+            <div className="flex items-center gap-2.5 select-none">
+              {isSessionActive ? (
+                <div className="flex items-center gap-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 shadow-[0_0_12px_rgba(244,63,94,0.12)]">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500" />
+                  </span>
+                  <span className="text-[9px] font-black tracking-wider font-mono text-rose-400 uppercase leading-none">
+                    LIVE
+                  </span>
                 </div>
-
-                <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3.5 py-1.5 text-right flex flex-col gap-0.5 select-none font-mono">
-                  <span className="text-[8px] font-bold text-cyan-500/70 uppercase tracking-widest leading-none">inference model</span>
-                  <span className="text-[10px] font-bold text-zinc-350 leading-none mt-0.5">MediaPipe FaceMesh · 30fps</span>
+              ) : (
+                <div className="flex items-center gap-1.5 rounded-full bg-zinc-550/10 border border-zinc-500/10 px-2.5 py-0.5">
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-zinc-550" />
+                  <span className="text-[9px] font-black tracking-wider font-mono text-zinc-500 uppercase leading-none">
+                    STANDBY
+                  </span>
                 </div>
-              </div>
+              )}
+
+              {isSessionActive && (
+                <div className="flex items-center rounded-full bg-white/[0.03] border border-white/5 px-2.5 py-0.5 text-[9px] font-bold text-zinc-350 font-mono tracking-tight shadow-[0_2px_8px_rgba(0,0,0,0.2)]">
+                  <span className="text-zinc-500 mr-1 select-none">T+</span>
+                  <span className="tabular-nums font-bold text-zinc-100 text-[10px] tracking-tight">{formatTime(elapsedSeconds)}</span>
+                </div>
+              )}
+
+              {isSessionActive && (
+                <span className="hidden md:inline-flex text-[8px] font-bold text-cyan-400/80 tracking-wider bg-cyan-500/5 border border-cyan-500/10 px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.05)]">
+                  Cognitive inference active
+                </span>
+              )}
+              
+              {/* CV Stream status badge */}
+              <span className="ml-2 text-xs font-medium text-cyan-400/80 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">CV Stream: {streamStatus}</span>
+            </div>
+
+            <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3.5 py-1.5 text-right flex flex-col gap-0.5 select-none font-mono">
+              <span className="text-[8px] font-bold text-cyan-500/70 uppercase tracking-widest leading-none">inference model</span>
+              <span className="text-[10px] font-bold text-zinc-350 leading-none mt-0.5">MediaPipe FaceMesh · 30fps</span>
+            </div>
+          </div>
+          {/* Debug UI: show active session ID preview */}
+          {activeSessionId && (
+            <div className="fixed top-2 right-2 text-xs text-zinc-400 font-mono bg-black/30 backdrop-blur-md px-2 py-1 rounded">
+              Session: {activeSessionId.slice(0, 8)}
+            </div>
+          )}
+          {process.env.NODE_ENV !== 'production' && (
+            <button
+              onClick={() => {
+                localStorage.removeItem('active_session_id');
+                localStorage.removeItem('active_session_start');
+                setActiveSessionId(null);
+                setSessionStartTime(null);
+                setIsSessionActive(false);
+              }}
+              className="ml-2 rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-300 hover:bg-amber-500/20"
+            >
+              Reset Local Session
+            </button>
+          )}
 
               {/* Center Webcam Preview Placeholder with Animated FaceMesh SVG (Requirement 1) */}
               <div className="flex-1 flex flex-col items-center justify-center relative min-h-[280px]">
@@ -753,13 +720,13 @@ export const LiveMonitoringPage: React.FC = () => {
 
                     {/* Vector Gaze Projection trackers */}
                     <motion.line 
-                      x1="170" y1="120" x2="155" y2="100" 
+                      x1={170 ?? 0} y1={120 ?? 0} x2={155 ?? 0} y2={100 ?? 0} 
                       stroke="#22d3ee" strokeWidth="0.8" opacity="0.5"
                       animate={{ x2: [155, 175, 155], y2: [100, 115, 100] }}
                       transition={{ repeat: Infinity, duration: 7, ease: "easeInOut" }}
                     />
                     <motion.line 
-                      x1="230" y1="120" x2="245" y2="100" 
+                      x1={230 ?? 0} y1={120 ?? 0} x2={245 ?? 0} y2={100 ?? 0} 
                       stroke="#22d3ee" strokeWidth="0.8" opacity="0.5"
                       animate={{ x2: [245, 225, 245], y2: [100, 115, 100] }}
                       transition={{ repeat: Infinity, duration: 7, ease: "easeInOut", delay: 0.35 }}
@@ -779,11 +746,11 @@ export const LiveMonitoringPage: React.FC = () => {
                     />
 
                     {/* Transverse forensic tracking vector lines */}
-                    <line x1="200" y1="55" x2="200" y2="115" stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
-                    <line x1="125" y1="150" x2="170" y2="120" stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
-                    <line x1="275" y1="150" x2="230" y2="120" stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
-                    <line x1="170" y1="120" x2="200" y2="115" stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
-                    <line x1="230" y1="120" x2="200" y2="115" stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
+                    <line x1={200 ?? 0} y1={55 ?? 0} x2={200 ?? 0} y2={115 ?? 0} stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
+                    <line x1={125 ?? 0} y1={150 ?? 0} x2={170 ?? 0} y2={120 ?? 0} stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
+                    <line x1={275 ?? 0} y1={150 ?? 0} x2={230 ?? 0} y2={120 ?? 0} stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
+                    <line x1={170 ?? 0} y1={120 ?? 0} x2={200 ?? 0} y2={115 ?? 0} stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
+                    <line x1={230 ?? 0} y1={120 ?? 0} x2={200 ?? 0} y2={115 ?? 0} stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
                   </svg>
                 )}
 
@@ -890,6 +857,7 @@ export const LiveMonitoringPage: React.FC = () => {
               </div>
 
               {/* Bottom control bar */}
+              <div className="text-xs font-bold text-zinc-400 mb-2">CV Stream: {streamStatus}</div>
               <div className="border-t border-white/[0.04] bg-white/[0.01] px-6 py-4.5 flex items-center justify-between z-10">
                 {/* Focus score readout */}
                 <div className="flex flex-col gap-0.5 text-left">
@@ -1007,53 +975,55 @@ export const LiveMonitoringPage: React.FC = () => {
 
           {/* Wave chart container */}
           <div className="flex-1 w-full text-xs">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={focusStream.length > 0 ? focusStream : [{ time: 'Just now', focus: 85 }]} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="glowCyanLive" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.12} />
-                    <stop offset="60%" stopColor="#8b5cf6" stopOpacity={0.04} />
-                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.0} />
-                  </linearGradient>
-                  <filter id="glowCyanFilter">
-                    <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#22d3ee" floodOpacity="0.45" />
-                  </filter>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.015)" vertical={false} />
-                <XAxis 
-                  dataKey="time" 
-                  stroke="#4b5563" 
-                  tickLine={false} 
-                  axisLine={false}
-                  dy={10}
-                  style={{ fontSize: '9px', fontWeight: 'bold' }}
-                />
-                <YAxis 
-                  stroke="#4b5563" 
-                  tickLine={false} 
-                  axisLine={false} 
-                  domain={[40, 100]}
-                  ticks={[40, 60, 80, 100]}
-                  dx={-5}
-                  style={{ fontSize: '9px', fontWeight: 'bold' }}
-                />
-                <Tooltip 
-                  content={<LiveTooltip />}
-                  cursor={{ stroke: 'rgba(255, 255, 255, 0.03)', strokeWidth: 1 }} 
-                />
-                <Area 
-                  type="monotone" 
-                  name="Focus"
-                  dataKey="focus" 
-                  stroke="#06b6d4" 
-                  strokeWidth={2.5}
-                  fillOpacity={1} 
-                  fill="url(#glowCyanLive)"
-                  filter="url(#glowCyanFilter)"
-                  activeDot={{ r: 5, strokeWidth: 0, fill: '#22d3ee' }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div className="w-full h-[260px] min-h-[260px]">
+              <ResponsiveContainer width="100%" height={260}>
+                <AreaChart data={focusStream.length > 0 ? focusStream : [{ time: 'Just now', focus: 85 }]} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="glowCyanLive" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.12} />
+                      <stop offset="60%" stopColor="#8b5cf6" stopOpacity={0.04} />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.0} />
+                    </linearGradient>
+                    <filter id="glowCyanFilter">
+                      <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#22d3ee" floodOpacity="0.45" />
+                    </filter>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.015)" vertical={false} />
+                  <XAxis 
+                    dataKey="time" 
+                    stroke="#4b5563" 
+                    tickLine={false} 
+                    axisLine={false}
+                    dy={10}
+                    style={{ fontSize: '9px', fontWeight: 'bold' }}
+                  />
+                  <YAxis 
+                    stroke="#4b5563" 
+                    tickLine={false} 
+                    axisLine={false} 
+                    domain={[40, 100]}
+                    ticks={[40, 60, 80, 100]}
+                    dx={-5}
+                    style={{ fontSize: '9px', fontWeight: 'bold' }}
+                  />
+                  <Tooltip 
+                    content={<LiveTooltip />}
+                    cursor={{ stroke: 'rgba(255, 255, 255, 0.03)', strokeWidth: 1 }} 
+                  />
+                  <Area 
+                    type="monotone" 
+                    name="Focus"
+                    dataKey="focus" 
+                    stroke="#06b6d4" 
+                    strokeWidth={2.5}
+                    fillOpacity={1} 
+                    fill="url(#glowCyanLive)"
+                    filter="url(#glowCyanFilter)"
+                    activeDot={{ r: 5, strokeWidth: 0, fill: '#22d3ee' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
 

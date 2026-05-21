@@ -1,0 +1,458 @@
+/* ==========================================
+   COGNIVUE FOCUS COACH HUD - PREMIUM CSS
+   Aesthetic: Deep Dark Glassmorphism
+   ========================================== */
+
+/* 1. Global Reset & Variables */
+:root {
+  --bg-gradient: linear-gradient(135deg, #090e1a 0%, #03070c 100%);
+  --border-white: rgba(255, 255, 255, 0.06);
+  --border-white-hover: rgba(255, 255, 255, 0.12);
+  --glass-bg: rgba(13, 20, 35, 0.45);
+  
+  /* Harmonious Palette */
+  --cyan-accent: #22d3ee;
+  --violet-accent: #a78bfa;
+  --amber-accent: #fbbf24;
+  --red-accent: #f87171;
+  --emerald-accent: #34d399;
+  
+  --text-white: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  
+  --font-hud: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: var(--font-hud);
+}
+
+body {
+  width: 340px;
+  background: var(--bg-gradient);
+  color: var(--text-white);
+  overflow-x: hidden;
+  padding: 14px;
+  border-radius: 12px;
+}
+
+/* 2. Container Layout */
+.hud-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 3. Header Section */
+.hud-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.brand-logo {
+  font-size: 16px;
+  filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.5));
+}
+
+.brand-name {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(to right, var(--text-white) 30%, #e2e8f0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Status Indicator Group */
+.status-pulse-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  position: relative;
+}
+
+.pulse-cyan {
+  background-color: var(--cyan-accent);
+  box-shadow: 0 0 8px var(--cyan-accent);
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+.status-text {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.text-cyan {
+  color: var(--cyan-accent);
+}
+
+/* Dynamic Mode Banner */
+.mode-banner {
+  border-radius: 10px;
+  padding: 10px 14px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dynamic Mode Gradients */
+.bg-gradient-general {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.08) 0%, rgba(167, 139, 250, 0.08) 100%);
+  border-color: rgba(34, 211, 238, 0.2);
+  color: var(--cyan-accent);
+}
+
+.bg-gradient-meeting {
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.08) 0%, rgba(34, 211, 238, 0.08) 100%);
+  border-color: rgba(52, 211, 153, 0.2);
+  color: var(--emerald-accent);
+}
+
+.bg-gradient-coding {
+  background: linear-gradient(90deg, rgba(167, 139, 250, 0.08) 0%, rgba(34, 211, 238, 0.08) 100%);
+  border-color: rgba(167, 139, 250, 0.2);
+  color: var(--violet-accent);
+}
+
+.bg-gradient-study {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.08) 0%, rgba(94, 234, 212, 0.08) 100%);
+  border-color: rgba(34, 211, 238, 0.25);
+  color: #5eafd4;
+}
+
+.bg-gradient-learning {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.08) 0%, rgba(167, 139, 250, 0.06) 100%);
+  border-color: rgba(34, 211, 238, 0.2);
+  color: var(--cyan-accent);
+}
+
+.bg-gradient-distracting {
+  background: linear-gradient(90deg, rgba(248, 113, 113, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%);
+  border-color: rgba(248, 113, 113, 0.25);
+  color: var(--red-accent);
+  box-shadow: 0 4px 15px rgba(248, 113, 113, 0.1);
+  animation: shake 0.5s ease-in-out;
+}
+
+/* 4. Main Panel Glass Cards */
+.hud-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.glass-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--border-white);
+  border-radius: 12px;
+  padding: 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.25s ease;
+}
+
+.glass-card:hover {
+  border-color: var(--border-white-hover);
+}
+
+.section-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--text-subtle);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+/* Telemetry Card Rows */
+.telemetry-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.telemetry-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.telemetry-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.telemetry-val {
+  font-size: 12px;
+  color: var(--text-white);
+  font-weight: 500;
+}
+
+.text-truncate {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.highlight-text {
+  color: var(--text-white);
+}
+
+.category-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Telemetry Mini Columns */
+.mt-sm {
+  margin-top: 8px;
+}
+
+.mini-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.mini-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+}
+
+.mini-val {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* 5. Metrics Index Styling */
+.metric-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.metric-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.metric-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.metric-val {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.italic {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--text-subtle);
+}
+
+.progress-track {
+  height: 4px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease-out;
+}
+
+.fill-cyan {
+  background: linear-gradient(90deg, var(--cyan-accent) 0%, var(--violet-accent) 100%);
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.5);
+}
+
+/* Cell Grid */
+.metrics-grid {
+  display: flex;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  padding-top: 10px;
+}
+
+.metric-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 6px;
+}
+
+.metric-cell:first-child {
+  padding-left: 0;
+}
+
+.metric-cell:last-child {
+  padding-right: 0;
+}
+
+.border-left {
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  padding-left: 12px;
+}
+
+.cell-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.cell-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-white);
+}
+
+/* 6. Privacy Footer Banner */
+.hud-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  padding-top: 10px;
+}
+
+.privacy-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.shield-icon {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.privacy-text {
+  font-size: 9.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.privacy-text strong {
+  color: var(--text-white);
+  font-weight: 600;
+}
+
+/* 6b. Cloud Sync Card */
+.sync-card {
+  padding: 10px 14px;
+}
+
+.sync-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sync-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sync-message-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sync-status-text {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+#sync-icon {
+  font-size: 11px;
+}
+
+.connect-later-badge {
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-white);
+  padding: 2.5px 6.5px;
+  border-radius: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  user-select: none;
+  transition: all 0.25s ease;
+}
+
+/* 7. Keyframe Animations */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.9;
+    box-shadow: 0 0 6px var(--cyan-accent);
+  }
+  50% {
+    opacity: 0.4;
+    box-shadow: 0 0 2px var(--cyan-accent);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}

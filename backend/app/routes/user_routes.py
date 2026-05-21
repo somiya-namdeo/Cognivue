@@ -25,3 +25,13 @@ async def update_profile(profile_data: UserProfile, current_user: dict = Depends
     """
     # TODO: Connect with User service / Supabase Database
     return profile_data
+
+@router.post("/init/{user_id}", status_code=status.HTTP_200_OK)
+async def init_user(user_id: str):
+    """
+    Ensure a user profile exists for the given user_id.
+    This placeholder implementation simply returns a success response.
+    In production, it would check the database and create the profile if missing.
+    """
+    # TODO: Connect with User service / Supabase to create profile if needed
+    return {"message": "User init completed", "user_id": user_id}

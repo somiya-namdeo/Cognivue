@@ -150,7 +150,10 @@ class SessionService:
                 start_time = datetime.now(timezone.utc)
             else:
                 # Robust parsing of UTC isoformat datetime (replacing Z with offset for compatibility)
+                import re
                 start_time_str_parsed = start_time_str.replace("Z", "+00:00")
+                # Remove fractional seconds entirely to avoid Python < 3.11 fromisoformat issues
+                start_time_str_parsed = re.sub(r'\.\d+', '', start_time_str_parsed)
                 start_time = datetime.fromisoformat(start_time_str_parsed)
                 
             end_time = datetime.now(timezone.utc)

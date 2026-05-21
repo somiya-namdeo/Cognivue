@@ -5,7 +5,7 @@ import { getLocalSession } from '../services/api';
 export const ProtectedRoute: React.FC = () => {
   const session = getLocalSession();
 
-  if (!session.accessToken) {
+  if (!session.accessToken || !session.userId) {
     return <Navigate to="/login" replace />;
   }
 

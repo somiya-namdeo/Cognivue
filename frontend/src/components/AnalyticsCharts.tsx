@@ -138,7 +138,7 @@ export const AttentionLoadChart: React.FC<AttentionLoadChartProps> = ({ data }) 
       </div>
 
       {/* Chart container */}
-      <div className="flex-1 w-full text-xs">
+      <div className="w-full h-[260px] min-h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
             <defs>
@@ -225,7 +225,7 @@ export const FocusProductivityChart: React.FC<FocusProductivityChartProps> = ({ 
       </div>
 
       {/* Chart container */}
-      <div className="flex-1 w-full text-xs">
+      <div className="w-full h-[260px] min-h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }} barGap={6}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.02)" vertical={false} />
@@ -328,7 +328,7 @@ export const RealtimeLoadChart: React.FC = () => {
       </div>
 
       {/* Chart container */}
-      <div className="flex-1 w-full text-xs">
+      <div className="w-full h-[260px] min-h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.02)" vertical={false} />

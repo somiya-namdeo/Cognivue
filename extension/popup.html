@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cognivue Focus Coach HUD</title>
+  <link rel="stylesheet" href="popup.css">
+  <!-- Inter Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="hud-container">
+    
+    <!-- HEADER SECTION -->
+    <header class="hud-header">
+      <div class="brand-row">
+        <div class="logo-group">
+          <!-- Sparkles Icon CSS stylized -->
+          <span class="brand-logo">✨</span>
+          <h1 class="brand-name">Cognivue</h1>
+        </div>
+        <div class="status-pulse-group">
+          <span id="hud-status-dot" class="status-dot pulse-cyan"></span>
+          <span id="hud-status-text" class="status-text text-cyan">ACTIVE</span>
+        </div>
+      </div>
+      
+      <!-- Dynamic Cognitive Mode Banner -->
+      <div id="dynamic-mode-banner" class="mode-banner bg-gradient-general">
+        <span id="dynamic-mode-text">Universal Focus Mode Active</span>
+      </div>
+    </header>
+
+    <!-- CONTENT PANEL -->
+    <main class="hud-main">
+      
+      <!-- Telemetry Section -->
+      <div class="glass-card telemetry-card">
+        <span class="section-label">CONTEXT TELEMETRY</span>
+        
+        <div class="telemetry-row">
+          <span class="telemetry-label">Active Domain</span>
+          <span id="active-domain" class="telemetry-val text-truncate">searching...</span>
+        </div>
+        
+        <div class="telemetry-row">
+          <span class="telemetry-label">Detected Mode</span>
+          <span id="detected-mode" class="telemetry-val highlight-text font-semibold">General</span>
+        </div>
+        
+        <div class="telemetry-row">
+          <span class="telemetry-label">Activity Category</span>
+          <span id="activity-category" class="telemetry-val category-badge">General Browsing</span>
+        </div>
+
+        <div class="telemetry-row mt-sm">
+          <div class="mini-col">
+            <span class="mini-label">TIME SPENT</span>
+            <span id="time-spent" class="mini-val text-white">0s</span>
+          </div>
+          <div class="mini-col text-right">
+            <span class="mini-label">TAB SWITCHES</span>
+            <span id="tab-switches" class="mini-val text-white">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cognitive Metrics Section -->
+      <div class="glass-card metrics-card">
+        <span class="section-label">COGNITIVE INDEX</span>
+        
+        <div class="metric-block">
+          <div class="metric-header">
+            <span class="metric-label">Focus Score</span>
+            <span id="metric-focus-val" class="metric-val text-cyan italic">Waiting for Cognivue session</span>
+          </div>
+          <div class="progress-track">
+            <div id="metric-focus-bar" class="progress-fill fill-cyan" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <div class="metrics-grid mt-sm">
+          <div class="metric-cell">
+            <span class="cell-label">Cognitive Load</span>
+            <span id="metric-load-val" class="cell-val">—</span>
+          </div>
+          <div class="metric-cell border-left">
+            <span class="cell-label">Fatigue Level</span>
+            <span id="metric-fatigue-val" class="cell-val">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cloud Synchronization Card -->
+      <div id="sync-status-card" class="glass-card sync-card">
+        <div class="sync-row">
+          <div class="sync-info">
+            <span class="section-label">CLOUD SYNCHRONIZATION</span>
+            <div class="sync-message-container">
+              <span id="sync-icon">🔄</span>
+              <span id="sync-status-msg" class="sync-status-text">Checking connection...</span>
+            </div>
+          </div>
+          <div id="connect-later-badge" class="connect-later-badge" style="display: none;">
+            Local Only
+          </div>
+        </div>
+      </div>
+      
+    </main>
+
+    <!-- PRIVACY ASSURANCE FOOTER -->
+    <footer class="hud-footer">
+      <div class="privacy-note">
+        <span class="shield-icon">🛡️</span>
+        <p class="privacy-text">
+          <strong>Privacy Assurance</strong>: Only domain-level activity is tracked. Page content, keystrokes, screenshots, and camera feed are never accessed by this extension.
+        </p>
+      </div>
+    </footer>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, User, Brain, ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { signupUser } from '../services/api';
+import { signupUser, initUser } from '../services/api';
 
 export const SignUpPage = () => {
   const navigate = useNavigate();
@@ -23,7 +23,13 @@ export const SignUpPage = () => {
     setIsLoading(true);
 
     try {
-      await signupUser(fullName, email, password);
+      const signupData = await signupUser(fullName, email, password);
+      // Initialize user profile (ignore failures)
+      try {
+        await initUser(signupData.user_id);
+      } catch (e) {
+        console.warn('User init failed', e);
+      }
       setSuccess('Account created successfully! Redirecting to login...');
       setTimeout(() => {
         navigate('/login');

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Brain, ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { loginUser, saveSession } from '../services/api';
+import { loginUser, saveSession, initUser } from '../services/api';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
@@ -22,6 +22,12 @@ export const LoginPage = () => {
       const data = await loginUser(email, password);
       // Save session inside localStorage
       saveSession(data);
+      // Initialize user profile (ignore failures)
+      try {
+        await initUser(data.user_id);
+      } catch (e) {
+        console.warn('User init failed', e);
+      }
       // Redirect to dashboard
       navigate('/dashboard');
     } catch (err: unknown) {

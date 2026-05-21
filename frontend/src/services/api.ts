@@ -290,3 +290,66 @@ export async function getDashboardAnalytics(userId: string): Promise<DashboardAn
   });
   return handleResponse<DashboardAnalytics>(response);
 }
+
+// --- AI INSIGHTS APIS ---
+
+export interface CognitiveScores {
+  focus_consistency: number;
+  burnout_risk: number;
+  cognitive_efficiency: number;
+  recovery_balance: number;
+  productivity_momentum: number;
+}
+
+export interface BehaviorPatterns {
+  best_time_window: string;
+  weakest_time_window: string;
+  deep_work_ratio: number;
+  attention_stability: number;
+  fatigue_drift: number;
+}
+
+export interface AIInsightCard {
+  title: string;
+  summary: string;
+  category: string; // focus | fatigue | productivity | behavior | recovery | anomaly
+  severity: string; // positive | neutral | warning | critical
+  confidence: number;
+  recommendation: string;
+  supporting_metrics: Record<string, any>;
+}
+
+export interface AdvancedAIInsightsResponse {
+  user_id: string;
+  generated_at: string;
+  summary: string;
+  scores: CognitiveScores;
+  patterns: BehaviorPatterns;
+  insights: AIInsightCard[];
+  recommendations: string[];
+}
+
+export async function getAIInsights(userId: string): Promise<AdvancedAIInsightsResponse> {
+  const response = await fetch(`${API_BASE_URL}/insights/generate/${userId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  return handleResponse<AdvancedAIInsightsResponse>(response);
+}
+
+// Initialize user profile after login/signup
+export async function initUser(userId: string): Promise<void> {
+  try {
+    await fetch(`${API_BASE_URL}/users/init/${userId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    // Silently ignore response; no blocking
+  } catch (e) {
+    console.warn('User init failed', e);
+  }
+}
+
+

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Play, Activity, Brain, Eye, Sparkles, Clock, Zap } from 'lucide-react';
+import { getLocalSession } from '../services/api';
 
 export const HeroSection = () => {
   const [sessionTime, setSessionTime] = useState('00:42:18');
@@ -96,13 +97,19 @@ export const HeroSection = () => {
           {/* Buttons */}
           <div className="mt-10 flex flex-wrap gap-4 items-center">
             {/* Start Monitoring */}
-            <Link 
-              to="/dashboard"
-              className="glow-btn group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3.5 text-sm font-semibold text-white transition-all shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_20px_rgba(6,182,212,0.18)] select-none hover:scale-[1.01]"
-            >
-              Start Monitoring
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 duration-200" />
-            </Link>
+            {(() => {
+              const session = getLocalSession();
+              const target = session?.accessToken && session?.userId ? '/live-monitoring' : '/login';
+              return (
+                <Link
+                  to={target}
+                  className="glow-btn group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3.5 text-sm font-semibold text-white transition-all shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_20px_rgba(6,182,212,0.18)] select-none hover:scale-[1.01]"
+                >
+                  Start Monitoring
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 duration-200" />
+                </Link>
+              );
+            })()}
 
             {/* Watch demo */}
             <a 
