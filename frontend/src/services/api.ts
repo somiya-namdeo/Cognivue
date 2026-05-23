@@ -255,6 +255,30 @@ export async function getLatestMetric(sessionId: string): Promise<MetricResponse
   return handleResponse<MetricResponse>(response);
 }
 
+// --- EXTENSION APIS ---
+
+export interface ExtensionActivityResponse {
+  id: string;
+  user_id: string;
+  domain: string;
+  category: string;
+  mode: string;
+  risk_level: 'Low' | 'Medium' | 'High';
+  active_duration_seconds: number;
+  tab_switches: number;
+  recorded_at: string;
+}
+
+export async function getExtensionActivity(userId: string): Promise<ExtensionActivityResponse[]> {
+  const response = await fetch(`${API_BASE_URL}/extension/activity/${userId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  return handleResponse<ExtensionActivityResponse[]>(response);
+}
+
 // --- DASHBOARD ANALYTICS APIS ---
 
 export interface DashboardAnalytics {

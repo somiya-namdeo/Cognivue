@@ -51,15 +51,22 @@ All command execution for the client dashboard happens inside the `/frontend` di
 
 ---
 
-## 🛸 Planned Sub-Systems
+## 🛸 Sub-Systems
 
-### 1. `/backend` (Planned Local Server)
-A lightweight server (e.g. Express, Fastify, or Python FastAPI) built to securely collect posture and biometrics logs, aggregate analytics metrics, and provide secure local database persistence.
-- See the [Backend README](./backend/README.md) for future integration steps.
+### 1. `/backend` (Python FastAPI Server)
+A robust FastAPI backend powered by Supabase, serving local telemetry aggregation, computer-vision metrics, sessions management, and AI-driven coaching insights.
+- Ensure you have `.env` configured for Supabase authentication.
+- See the [Backend README](./backend/README.md) for detailed setup.
 
-### 2. `/extension` (Planned Browser Companion)
-A lightweight Chrome / Manifest V3 extension designed to compute active active-tab time, scroll transitions, and workspace interruptions, sending unified metrics back to the local inference client.
-- See the [Extension README](./extension/README.md) for initial companion layouts.
+### 2. `/extension` (Chrome Focus Coach Companion)
+A Manifest V3 extension engineered to analyze tab behavior, domain time, and mode switching. Telemetry syncs seamlessly with the local backend to inform AI Insights.
+
+**Installation (Developer Mode):**
+1. Navigate to `chrome://extensions` in your browser.
+2. Toggle **Developer mode** in the top-right corner.
+3. Click **Load unpacked** and select the `/extension` directory from this repository.
+4. Pin the Cognivue extension to your toolbar.
+5. In the main application's **Settings > Extension Page**, copy your Demo Connection Key and paste it into the extension popup.
 
 ---
 

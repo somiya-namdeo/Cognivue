@@ -8,105 +8,34 @@
 // Extensible Domain Categorization Function
 function categorizeDomain(urlStr) {
   if (!urlStr) {
-    return {
-      category: "General Browsing",
-      mode: "General",
-      riskLevel: "low",
-      label: "Universal Focus Mode Active"
-    };
+    return { category: "General Browsing", mode: "General", riskLevel: "low", label: "Universal Focus Mode Active" };
   }
-
   try {
     const url = new URL(urlStr);
     const host = url.hostname.toLowerCase();
     const domain = host.replace(/^www\./, '');
 
-    // 1. Meeting Mode
-    if (domain === 'meet.google.com' || 
-        domain.includes('zoom.us') || 
-        domain.includes('teams.microsoft.com') || 
-        domain.includes('teams.live.com')) {
-      return {
-        category: "Meeting / Collaboration",
-        mode: "Meeting",
-        riskLevel: "low",
-        label: "Meeting Focus Mode Active"
-      };
+    if (domain === 'meet.google.com' || domain.includes('zoom.us') || domain.includes('teams.microsoft.com') || domain.includes('teams.live.com')) {
+      return { category: "Meeting / Collaboration", mode: "Meeting", riskLevel: "low", label: "Meeting Focus Mode Active" };
     }
-
-    // 2. Coding Mode
-    if (domain === 'github.com' || 
-        domain === 'stackoverflow.com' || 
-        domain === 'localhost' || 
-        domain === '127.0.0.1' || 
-        domain === 'codeforces.com' || 
-        domain === 'leetcode.com') {
-      return {
-        category: "Development",
-        mode: "Coding",
-        riskLevel: "low",
-        label: "Coding Focus Mode Active"
-      };
+    if (domain === 'github.com' || domain === 'stackoverflow.com' || domain === 'localhost' || domain === '127.0.0.1' || domain === 'codeforces.com' || domain === 'leetcode.com') {
+      return { category: "Development", mode: "Coding", riskLevel: "low", label: "Coding Focus Mode Active" };
     }
-
-    // 3. Study / Reading Mode
-    if (domain === 'docs.google.com' || 
-        domain === 'notion.so' || 
-        domain === 'medium.com' || 
-        domain === 'arxiv.org') {
-      return {
-        category: "Study / Writing",
-        mode: "Study",
-        riskLevel: "low",
-        label: "Deep Study Mode Active"
-      };
+    if (domain === 'docs.google.com' || domain === 'notion.so' || domain === 'medium.com' || domain === 'arxiv.org') {
+      return { category: "Study / Writing", mode: "Study", riskLevel: "low", label: "Deep Study Mode Active" };
     }
-
-    // 4. Learning Mode
-    if (domain.includes('youtube.com') || 
-        domain === 'coursera.org' || 
-        domain === 'udemy.com') {
-      return {
-        category: "Learning / Tutorial",
-        mode: "Learning",
-        riskLevel: "low",
-        label: "Learning Mode Active"
-      };
+    if (domain.includes('youtube.com') || domain === 'coursera.org' || domain === 'udemy.com') {
+      return { category: "Learning / Tutorial", mode: "Learning", riskLevel: "low", label: "Learning Mode Active" };
     }
-
-    // 5. Distraction Risk
-    if (domain === 'instagram.com' || 
-        domain === 'x.com' || 
-        domain === 'twitter.com' || 
-        domain === 'reddit.com') {
-      return {
-        category: "Social / Entertainment",
-        mode: "Distracting",
-        riskLevel: "high",
-        label: "Distraction Risk Detected"
-      };
+    if (domain === 'instagram.com' || domain === 'x.com' || domain === 'twitter.com' || domain === 'reddit.com') {
+      return { category: "Social / Entertainment", mode: "Distracting", riskLevel: "high", label: "Distraction Risk Detected" };
     }
-
-    // 6. General Focus Mode
-    return {
-      category: "General Browsing",
-      mode: "General",
-      riskLevel: "low",
-      label: "Universal Focus Mode Active"
-    };
-
+    return { category: "General Browsing", mode: "General", riskLevel: "low", label: "Universal Focus Mode Active" };
   } catch (e) {
-    // Fail-safe default if URL parsing fails (e.g. chrome:// tabs)
-    return {
-      category: "System / Navigation",
-      mode: "General",
-      riskLevel: "low",
-      label: "Universal Focus Mode Active"
-    };
+    return { category: "System / Navigation", mode: "General", riskLevel: "low", label: "Universal Focus Mode Active" };
   }
 }
 
-// Extracted helper to retrieve domain string from URL
 function getDomainFromUrl(urlStr) {
   if (!urlStr) return "";
   try {
@@ -117,138 +46,132 @@ function getDomainFromUrl(urlStr) {
   }
 }
 
-// Active tracking session state in background memory
+// State
 let activeDomain = "";
+let activeTitle = "";
 let category = "General Browsing";
 let focusMode = "General";
-let timeSpentSeconds = 0;
 let tabSwitches = 0;
-let lastUpdated = Date.now();
 let syncStatus = "Local only";
 
-// Restore from chrome.storage.local on launch
+// Timer tracking
+let activeDomainStartTime = Date.now();
+let totalTimeByDomain = {};
+let unsyncedTimeSeconds = 0;
+
 function initializeState() {
   chrome.storage.local.get([
-    "activeDomain",
-    "category",
-    "focusMode",
-    "timeSpentSeconds",
-    "tabSwitches",
-    "lastUpdated",
-    "syncStatus"
+    "activeDomain", "activeTitle", "category", "focusMode", "tabSwitches", "syncStatus",
+    "activeDomainStartTime", "totalTimeByDomain", "unsyncedTimeSeconds"
   ], (result) => {
-    if (result.activeDomain !== undefined) {
-      activeDomain = result.activeDomain;
-      category = result.category || "General Browsing";
-      focusMode = result.focusMode || "General";
-      timeSpentSeconds = result.timeSpentSeconds || 0;
-      tabSwitches = result.tabSwitches || 0;
-      lastUpdated = result.lastUpdated || Date.now();
-      syncStatus = result.syncStatus || "Local only";
+    activeDomain = result.activeDomain || "";
+    activeTitle = result.activeTitle || "";
+    category = result.category || "General Browsing";
+    focusMode = result.focusMode || "General";
+    tabSwitches = result.tabSwitches || 0;
+    syncStatus = result.syncStatus || "Local only";
+    
+    // Safely restore timers or restart them
+    activeDomainStartTime = result.activeDomainStartTime || Date.now();
+    totalTimeByDomain = result.totalTimeByDomain || {};
+    unsyncedTimeSeconds = result.unsyncedTimeSeconds || 0;
+    
+    // Attempt to recover active tab if it's missing (e.g. extension restart)
+    if (!activeDomain) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs && tabs[0]) {
+          handleTabTransition(tabs[0].url || tabs[0].pendingUrl, tabs[0].title);
+        }
+      });
     } else {
       saveState();
     }
   });
 }
 
-// Persist standard structured state to chrome.storage.local
 function saveState() {
   chrome.storage.local.set({
-    activeDomain,
-    category,
-    focusMode,
-    timeSpentSeconds,
-    tabSwitches,
-    lastUpdated,
-    syncStatus
+    activeDomain, activeTitle, category, focusMode, tabSwitches, syncStatus,
+    activeDomainStartTime, totalTimeByDomain, unsyncedTimeSeconds
   });
 }
 
-// Main tick update (calculates precise delta since last tick)
-function updateHeartbeat() {
+function accumulateTime() {
   const now = Date.now();
-  const elapsedMs = now - lastUpdated;
+  const elapsedSeconds = Math.round((now - activeDomainStartTime) / 1000);
   
-  if (activeDomain && activeDomain !== "newtab" && activeDomain !== "") {
-    timeSpentSeconds += Math.round(elapsedMs / 1000);
+  if (elapsedSeconds > 0 && activeDomain && activeDomain !== "newtab" && activeDomain !== "") {
+    totalTimeByDomain[activeDomain] = (totalTimeByDomain[activeDomain] || 0) + elapsedSeconds;
+    unsyncedTimeSeconds += elapsedSeconds;
   }
   
-  lastUpdated = now;
+  activeDomainStartTime = now;
   saveState();
 }
 
-// Reset timer state when shifting to a brand new domain
-function handleTabTransition(url) {
-  const now = Date.now();
-  const elapsedMs = now - lastUpdated;
+function handleTabTransition(url, title = "") {
+  accumulateTime();
   
-  // Save previous domain's accumulated time to prevent loss on fast changes
-  if (activeDomain && activeDomain !== "newtab" && activeDomain !== "") {
-    timeSpentSeconds += Math.round(elapsedMs / 1000);
-  }
-
   const newDomain = getDomainFromUrl(url);
   const info = categorizeDomain(url);
 
   if (newDomain !== activeDomain) {
+    console.log("Active tab changed to:", newDomain);
     tabSwitches += 1;
     activeDomain = newDomain;
+    activeTitle = title;
     category = info.category;
-    focusMode = info.mode; // Meeting, Coding, Study, Learning, Distracting, General
-    timeSpentSeconds = 0; // Reset active duration for the newly activated domain
+    focusMode = info.mode;
+    activeDomainStartTime = Date.now();
+    console.log("Domain timer updated for:", activeDomain);
+  } else if (title) {
+    activeTitle = title;
   }
-
-  lastUpdated = now;
+  
   saveState();
 }
 
-// 1. Tab activated listener (user clicks different tab)
+// 1. Tab activated listener
 chrome.tabs.onActivated.addListener((activeInfo) => {
   chrome.tabs.get(activeInfo.tabId, (tab) => {
     if (chrome.runtime.lastError || !tab) return;
-    handleTabTransition(tab.url || tab.pendingUrl);
+    handleTabTransition(tab.url || tab.pendingUrl, tab.title);
   });
 });
 
-// 2. Tab updated listener (user navigates to another URL in same tab)
+// 2. Tab updated listener
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url) {
-    // Only transition if the updated tab is the active tab in its window
+  if (changeInfo.url || changeInfo.title) {
     chrome.tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
       const activeTab = activeTabs[0];
       if (activeTab && activeTab.id === tabId) {
-        handleTabTransition(changeInfo.url);
+        handleTabTransition(activeTab.url || activeTab.pendingUrl, activeTab.title);
       }
     });
   }
 });
 
-// 3. Window focus listener (user switches applications/windows)
+// 3. Window focus listener
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    // Browser is out of focus, add time elapsed and stop actively accumulating
-    const now = Date.now();
-    const elapsedMs = now - lastUpdated;
-    if (activeDomain && activeDomain !== "newtab" && activeDomain !== "") {
-      timeSpentSeconds += Math.round(elapsedMs / 1000);
-    }
-    lastUpdated = now;
-    saveState();
+    accumulateTime();
   } else {
-    // Browser is back in focus, update active tab details
     chrome.tabs.query({ active: true, windowId: windowId }, (activeTabs) => {
       const activeTab = activeTabs[0];
       if (activeTab) {
-        handleTabTransition(activeTab.url || activeTab.pendingUrl);
+        handleTabTransition(activeTab.url || activeTab.pendingUrl, activeTab.title);
       }
     });
   }
 });
 
-// Synchronization handler (every 30 seconds)
+// Sync handler (5 seconds)
 function syncTelemetry() {
-  chrome.storage.local.get(["user_id", "userId"], (result) => {
+  accumulateTime(); // Ensure latest time is tracked
+  
+  chrome.storage.local.get(["user_id", "userId", "active_session_id"], (result) => {
     const userId = result.user_id || result.userId;
+    const sessionId = result.active_session_id || null;
     
     if (!userId) {
       syncStatus = "Waiting for Account";
@@ -256,70 +179,132 @@ function syncTelemetry() {
       return;
     }
 
-    // Avoid duplicate spam: If duration is 0 and tab_switches is 0, skip sync
-    if (timeSpentSeconds === 0 && tabSwitches === 0) {
+    if (unsyncedTimeSeconds === 0) {
       syncStatus = "Synced";
       saveState();
       return;
     }
 
-    const riskLevel = focusMode === "Distracting" ? "High" : "Low";
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const title = tabs && tabs[0] ? tabs[0].title : "";
 
-    const payload = {
-      user_id: userId,
-      domain: activeDomain || "unknown",
-      category: category,
-      mode: focusMode,
-      risk_level: riskLevel,
-      active_duration_seconds: timeSpentSeconds,
-      tab_switches: tabSwitches
-    };
+      const payload = {
+        user_id: userId,
+        session_id: sessionId,
+        domain: activeDomain || "unknown",
+        title: title,
+        detected_mode: focusMode,
+        activity_category: category,
+        time_spent: unsyncedTimeSeconds,
+        tab_switches: tabSwitches,
+        timestamp: new Date().toISOString()
+      };
 
-    fetch("http://127.0.0.1:8000/extension/activity", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    })
-    .then(async (response) => {
-      if (!response.ok) {
-        throw new Error("HTTP error " + response.status);
-      }
-      
-      // Reset interval counters: active_duration_seconds, tab_switches
-      timeSpentSeconds = 0;
-      tabSwitches = 0;
-      syncStatus = "Synced";
-      lastUpdated = Date.now();
-      saveState();
-    })
-    .catch((err) => {
-      console.error("Cognivue Telemetry sync failed (backend offline):", err);
-      syncStatus = "Backend offline";
-      saveState();
+      fetch("http://127.0.0.1:8000/extension/activity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("HTTP error " + response.status);
+        
+        console.log("Activity sync result: Success", unsyncedTimeSeconds, "seconds synced.");
+        unsyncedTimeSeconds = 0;
+        syncStatus = "Synced";
+        saveState();
+      })
+      .catch((err) => {
+        console.error("Cognivue Telemetry sync failed (backend offline):", err);
+        syncStatus = "Cloud sync paused";
+        saveState();
+      });
     });
   });
 }
 
-// Alarm / Heartbeat setup to drive live incremental counts (1-second updates)
-chrome.alarms.create("hud-heartbeat", { periodInMinutes: 1 / 60 });
+// Active session & metrics polling (5 seconds)
+function pollActiveSession() {
+  chrome.storage.local.get(["user_id", "userId", "active_session_id"], (result) => {
+    const userId = result.user_id || result.userId;
+    if (!userId) return;
 
-// Sync alarm trigger (runs every 30 seconds / 0.5 minutes)
-chrome.alarms.create("telemetry-sync", { periodInMinutes: 0.5 });
+    // 1. Poll for active session
+    fetch(`http://127.0.0.1:8000/sessions/active/${userId}`)
+      .then(res => {
+        if (!res.ok) throw new Error("No active session");
+        return res.json();
+      })
+      .then(session => {
+        console.log("Active session response:", session);
+        const sessionId = session?.id || session?.session_id || session?.active_session_id;
+        if (sessionId) {
+          chrome.storage.local.set({ active_session_id: sessionId });
+          return sessionId;
+        }
+        throw new Error("No valid session ID in response");
+      })
+      .then(sessionId => {
+        // 2. Fetch metrics
+        fetch(`http://127.0.0.1:8000/metrics/latest/${sessionId}`)
+          .then(res => {
+            if (!res.ok) {
+              if (res.status === 404) {
+                return fetch(`http://127.0.0.1:8000/metrics/session/${sessionId}`)
+                  .then(fbRes => {
+                    if (!fbRes.ok) throw new Error("Fallback failed");
+                    return fbRes.json();
+                  })
+                  .then(arr => {
+                    if (Array.isArray(arr) && arr.length > 0) return arr[arr.length - 1];
+                    throw new Error("No metrics in fallback");
+                  });
+              }
+              throw new Error("Metrics not available");
+            }
+            return res.json();
+          })
+          .then(metric => {
+            console.log("Metrics response:", metric);
+            if (metric) {
+              chrome.storage.local.set({ latestMetrics: metric });
+            }
+          })
+          .catch(err => {
+            console.warn("Could not fetch metrics:", err);
+            // Don't clear latestMetrics aggressively, just log
+          });
+      })
+      .catch(err => {
+        chrome.storage.local.remove(["active_session_id", "latestMetrics"]);
+      });
+  });
+}
+
+// Alarms setup
+chrome.alarms.create("telemetry-sync", { periodInMinutes: 5 / 60 });
+chrome.alarms.create("poll-session", { periodInMinutes: 5 / 60 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "hud-heartbeat") {
-    updateHeartbeat();
-  } else if (alarm.name === "telemetry-sync") {
+  if (alarm.name === "telemetry-sync") {
     syncTelemetry();
+  } else if (alarm.name === "poll-session") {
+    pollActiveSession();
   }
 });
 
-// Initialize on service worker startup
-initializeState();
+// Listen for reset command from popup
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "reset_extension_data") {
+    totalTimeByDomain = {};
+    unsyncedTimeSeconds = 0;
+    tabSwitches = 0;
+    activeDomainStartTime = Date.now();
+    saveState();
+    chrome.storage.local.remove(["latestMetrics", "active_session_id"], () => {
+      sendResponse({ status: "cleared" });
+    });
+    return true; // Keep channel open for async response
+  }
+});
 
-// TODO: Later connect to Cognivue CV camera permission system
-// TODO: Later fetch latest backend metrics if active_session_id exists
-// TODO: Later show floating overlay across supported websites
-// TODO: Later allow user to customize productive/distracting domains
+initializeState();

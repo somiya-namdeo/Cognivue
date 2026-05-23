@@ -85,12 +85,14 @@ function updatePopupHUD() {
     "activeDomain",
     "category",
     "focusMode",
-    "timeSpentSeconds",
     "tabSwitches",
     "active_session_id",
     "syncStatus",
     "user_id",
-    "userId"
+    "userId",
+    "totalTimeByDomain",
+    "activeDomainStartTime",
+    "latestMetrics"
   ], (result) => {
     
     // 1. Resolve active domain display
@@ -113,10 +115,33 @@ function updatePopupHUD() {
       modeEl.textContent = resolvedMode;
     }
 
-    // 4. Resolve and format time spent
+    // 4. Resolve and format time spent (Dynamic Calculation)
     const timeEl = document.getElementById("time-spent");
     if (timeEl) {
-      timeEl.textContent = formatDuration(result.timeSpentSeconds);
+      const activeDomain = result.activeDomain || "";
+      const totalTimeByDomain = result.totalTimeByDomain || {};
+      let activeDomainStartTime = result.activeDomainStartTime;
+      
+      // Initialize activeDomainStartTime if missing but domain exists
+      if (!activeDomainStartTime && activeDomain) {
+        activeDomainStartTime = Date.now();
+        chrome.storage.local.set({ activeDomainStartTime: activeDomainStartTime });
+      }
+
+      const storedTotal = totalTimeByDomain[activeDomain] || 0;
+      const liveElapsed = (activeDomain && activeDomain !== "newtab" && activeDomainStartTime)
+        ? Math.floor((Date.now() - activeDomainStartTime) / 1000)
+        : 0;
+      
+      const displayTime = storedTotal + liveElapsed;
+
+      // Debug logs
+      console.log("activeDomain", activeDomain);
+      console.log("activeDomainStartTime", activeDomainStartTime);
+      console.log("totalTimeByDomain", totalTimeByDomain);
+      console.log("displayTime", displayTime);
+
+      timeEl.textContent = formatDuration(displayTime);
     }
 
     // 5. Resolve tab switches
@@ -151,10 +176,6 @@ function updatePopupHUD() {
       statusDotEl.style.backgroundColor = config.statusDotBg;
       statusDotEl.style.boxShadow = `0 0 8px ${config.statusDotBg}`;
     }
-
-    // 7. Check for real-time Cognivue session metrics
-    handleCognitiveMetricsFetch(result.active_session_id);
-
     // 8. Update cloud synchronization card and display "Connect later" helper if no user_id exists
     const syncStatus = result.syncStatus || "Local only";
     const userId = result.user_id || result.userId;
@@ -162,11 +183,15 @@ function updatePopupHUD() {
     const syncIcon = document.getElementById("sync-icon");
     const syncMsg = document.getElementById("sync-status-msg");
     const connectLaterBadge = document.getElementById("connect-later-badge");
+    const linkedUserContainer = document.getElementById("linked-user-container");
+    const linkedUserId = document.getElementById("linked-user-id");
+
+    const connectFlowContainer = document.getElementById("connect-flow-container");
 
     if (syncMsg) {
       if (!userId) {
-        // "Connect later" helper state - extension still works fully locally!
-        syncMsg.textContent = "Connect account later. Tracking active locally.";
+        // "Connect later" helper state
+        syncMsg.textContent = "Demo tracking active locally.";
         if (syncIcon) syncIcon.textContent = "👤";
         if (connectLaterBadge) {
           connectLaterBadge.style.display = "block";
@@ -174,90 +199,53 @@ function updatePopupHUD() {
           connectLaterBadge.style.borderColor = "var(--border-white)";
           connectLaterBadge.style.color = "var(--text-muted)";
         }
-      } else if (syncStatus === "Synced") {
-        syncMsg.textContent = "Telemetry synced with Cloud.";
-        if (syncIcon) syncIcon.textContent = "☁️";
-        if (connectLaterBadge) {
-          connectLaterBadge.style.display = "block";
-          connectLaterBadge.textContent = "Synced";
-          connectLaterBadge.style.borderColor = "rgba(52, 211, 153, 0.3)";
-          connectLaterBadge.style.color = "var(--emerald-accent)";
+        if (connectFlowContainer) {
+          connectFlowContainer.style.display = "block";
         }
-      } else if (syncStatus === "Backend offline") {
-        syncMsg.textContent = "Cloud sync offline. Retrying...";
-        if (syncIcon) syncIcon.textContent = "🔌";
-        if (connectLaterBadge) {
-          connectLaterBadge.style.display = "block";
-          connectLaterBadge.textContent = "Cached";
-          connectLaterBadge.style.borderColor = "rgba(251, 191, 36, 0.3)";
-          connectLaterBadge.style.color = "var(--amber-accent)";
-        }
-      } else if (syncStatus === "Waiting for Account") {
-        syncMsg.textContent = "Connect account later. Tracking active locally.";
-        if (syncIcon) syncIcon.textContent = "👤";
-        if (connectLaterBadge) {
-          connectLaterBadge.style.display = "block";
-          connectLaterBadge.textContent = "Local Only";
-          connectLaterBadge.style.borderColor = "var(--border-white)";
-          connectLaterBadge.style.color = "var(--text-muted)";
+        if (linkedUserContainer) {
+          linkedUserContainer.style.display = "none";
         }
       } else {
-        syncMsg.textContent = "Universal focus tracking active.";
-        if (syncIcon) syncIcon.textContent = "✨";
-        if (connectLaterBadge) {
-          connectLaterBadge.style.display = "block";
-          connectLaterBadge.textContent = "Local";
-          connectLaterBadge.style.borderColor = "var(--border-white)";
-          connectLaterBadge.style.color = "var(--text-muted)";
+        if (connectFlowContainer) {
+          connectFlowContainer.style.display = "none";
+        }
+        if (linkedUserContainer && linkedUserId) {
+          linkedUserContainer.style.display = "block";
+          linkedUserId.textContent = userId.substring(0, 8) + "...";
+        }
+        if (syncStatus === "Synced") {
+          syncMsg.textContent = "Telemetry synced with Cloud.";
+          if (syncIcon) syncIcon.textContent = "☁️";
+          if (connectLaterBadge) {
+            connectLaterBadge.style.display = "block";
+            connectLaterBadge.textContent = "Synced";
+            connectLaterBadge.style.borderColor = "rgba(52, 211, 153, 0.3)";
+            connectLaterBadge.style.color = "var(--emerald-accent)";
+          }
+        } else if (syncStatus === "Cloud sync paused") {
+          syncMsg.textContent = "Cloud sync paused. Tracking locally...";
+          if (syncIcon) syncIcon.textContent = "🔌";
+          if (connectLaterBadge) {
+            connectLaterBadge.style.display = "block";
+            connectLaterBadge.textContent = "Cached";
+            connectLaterBadge.style.borderColor = "rgba(251, 191, 36, 0.3)";
+            connectLaterBadge.style.color = "var(--amber-accent)";
+          }
+        } else {
+          syncMsg.textContent = syncStatus;
+          if (syncIcon) syncIcon.textContent = "✨";
+          if (connectLaterBadge) {
+            connectLaterBadge.style.display = "block";
+            connectLaterBadge.textContent = "Local";
+            connectLaterBadge.style.borderColor = "var(--border-white)";
+            connectLaterBadge.style.color = "var(--text-muted)";
+          }
         }
       }
     }
   });
 }
 
-// Prepare to query backend metrics once active_session_id is saved
-function handleCognitiveMetricsFetch(sessionId) {
-  const focusValEl = document.getElementById("metric-focus-val");
-  const focusBarEl = document.getElementById("metric-focus-bar");
-  const loadValEl = document.getElementById("metric-load-val");
-  const fatigueValEl = document.getElementById("metric-fatigue-val");
-
-  if (!sessionId) {
-    // Show premium waiting state placeholders (as requested)
-    if (focusValEl) {
-      focusValEl.textContent = "Waiting for Cognivue session";
-      focusValEl.className = "metric-val text-cyan italic";
-    }
-    if (focusBarEl) {
-      focusBarEl.style.width = "0%";
-    }
-    if (loadValEl) {
-      loadValEl.textContent = "—";
-    }
-    if (fatigueValEl) {
-      fatigueValEl.textContent = "—";
-    }
-    return;
-  }
-
-  // TODO: Later fetch latest backend metrics
-  // Once active_session_id exists in storage, we can fetch dynamic CV telemetry:
-  //
-  // fetch(`http://127.0.0.1:8000/metrics/latest/${sessionId}`)
-  //   .then(res => res.json())
-  //   .then(metric => {
-  //     const focus = Math.round(metric.focus_score);
-  //     const load = Math.round(metric.cognitive_load);
-  //     
-  //     focusValEl.textContent = `${focus}%`;
-  //     focusValEl.className = "metric-val text-cyan font-bold";
-  //     focusBarEl.style.width = `${focus}%`;
-  //     
-  //     loadValEl.textContent = `${load}%`;
-  //     fatigueValEl.textContent = metric.fatigue_score >= 71 ? "High" : metric.fatigue_score >= 36 ? "Medium" : "Low";
-  //   })
-  //   .catch(err => console.error("Error fetching live HUD metrics:", err));
-}
 
 // Run immediately on page load
 document.addEventListener("DOMContentLoaded", () => {
@@ -266,15 +254,73 @@ document.addEventListener("DOMContentLoaded", () => {
   // Tick updates every 500ms to keep duration and metrics perfectly in sync
   const liveInterval = setInterval(updatePopupHUD, 500);
 
+  // Connection logic
+  const connectBtn = document.getElementById("connect-btn");
+  if (connectBtn) {
+    connectBtn.addEventListener("click", () => {
+      const input = document.getElementById("connect-key-input");
+      if (input && input.value) {
+        try {
+          const decoded = atob(input.value); // Base64 decode demo key
+          
+          if (!decoded || decoded.length < 5 || decoded === "undefined") {
+            throw new Error("Invalid demo key");
+          }
+
+          chrome.storage.local.set({ 
+            user_id: decoded, 
+            cognivue_user_id: decoded, 
+            extension_connected: true, 
+            syncStatus: "Synced" 
+          }, () => {
+            updatePopupHUD();
+          });
+        } catch (e) {
+          alert("Invalid base64 demo key.");
+        }
+      }
+    });
+  }
+
+  const changeAccountBtn = document.getElementById("change-account-btn");
+  if (changeAccountBtn) {
+    changeAccountBtn.addEventListener("click", () => {
+      const connectFlowContainer = document.getElementById("connect-flow-container");
+      if (connectFlowContainer) {
+        connectFlowContainer.style.display = "block";
+      }
+    });
+  }
+
+  const disconnectBtn = document.getElementById("disconnect-btn");
+  if (disconnectBtn) {
+    disconnectBtn.addEventListener("click", () => {
+      chrome.storage.local.remove([
+        "user_id", 
+        "cognivue_user_id", 
+        "extension_connected", 
+        "active_session_id", 
+        "syncStatus",
+        "latestMetrics"
+      ], () => {
+        updatePopupHUD();
+      });
+    });
+  }
+
+  const resetDataBtn = document.getElementById("reset-data-btn");
+  if (resetDataBtn) {
+    resetDataBtn.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ action: "reset_extension_data" }, (response) => {
+        if (response && response.status === "cleared") {
+          updatePopupHUD();
+        }
+      });
+    });
+  }
+
   // Clear interval on window close
   window.addEventListener("unload", () => {
     clearInterval(liveInterval);
   });
 });
-
-// ==========================================
-// ARCHITECTURAL FUTURE DEVELOPMENTS (TODOs)
-// ==========================================
-// TODO: Later connect to Cognivue CV camera permission system to control desktop webcam
-// TODO: Later show floating overlay across supported websites (Google Meet, Zoom) using content scripts
-// TODO: Later allow user to customize productive/distracting domains via a premium settings panel

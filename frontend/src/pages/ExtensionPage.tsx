@@ -15,11 +15,54 @@ import {
   Clock
 } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { getLocalSession, getExtensionActivity } from '../services/api';
+import type { ExtensionActivityResponse } from '../services/api';
 
 export const ExtensionPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState('Extension');
   const [isPaused, setIsPaused] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
+  const session = getLocalSession();
+  const userId = session.userId;
+  
+  const [latestActivity, setLatestActivity] = React.useState<ExtensionActivityResponse | null>(null);
+  const [mismatchWarning, setMismatchWarning] = useState(false);
+
+  React.useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'COGNIVUE_EXTENSION_LINKED_USER') {
+        const extUserId = event.data.userId;
+        if (userId && extUserId && extUserId !== userId) {
+          setMismatchWarning(true);
+        } else {
+          setMismatchWarning(false);
+        }
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [userId]);
+
+  React.useEffect(() => {
+    if (userId) {
+      getExtensionActivity(userId)
+        .then(data => {
+          if (data && data.length > 0) {
+            setLatestActivity(data[0]);
+          }
+        })
+        .catch(err => console.warn("Could not fetch extension activity", err));
+    }
+  }, [userId]);
+
+  const demoConnectKey = userId ? btoa(userId) : '';
+
+  const copyConnectKey = () => {
+    if (!demoConnectKey) return;
+    navigator.clipboard.writeText(demoConnectKey);
+    setShowNotification(true);
+    setTimeout(() => setShowNotification(false), 3000);
+  };
 
   const containerVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
@@ -45,7 +88,7 @@ export const ExtensionPage: React.FC = () => {
       {showNotification && (
         <div className="fixed bottom-6 right-6 z-50 rounded-xl border border-cyan-500/20 bg-cyan-950/80 px-4 py-3 text-sm font-semibold text-cyan-400 backdrop-blur-md shadow-lg flex items-center gap-2">
           <Sparkles className="h-4 w-4" />
-          <span>Redirecting to Chrome Web Store...</span>
+          <span>Action completed!</span>
         </div>
       )}
 
@@ -243,6 +286,78 @@ export const ExtensionPage: React.FC = () => {
 
           </div>
 
+        </div>
+
+        {/* ================= EXTENSION SETUP SECTION ================= */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full mt-4">
+          
+          {/* Installation Steps */}
+          <div className="rounded-2xl border border-white/5 bg-slate-950/20 p-6 backdrop-blur-md flex flex-col gap-4 text-left">
+            <h4 className="text-lg font-bold text-white mb-2">Manual Installation</h4>
+            <ol className="list-decimal list-inside text-sm text-zinc-300 space-y-3 font-medium">
+              <li>Open Chrome and navigate to <code className="bg-white/10 px-1.5 py-0.5 rounded text-cyan-300 font-mono text-xs">chrome://extensions</code></li>
+              <li>Toggle <strong>Developer mode</strong> ON in the top right corner.</li>
+              <li>Click <strong>Load unpacked</strong> and select the <code className="bg-white/10 px-1.5 py-0.5 rounded text-cyan-300 font-mono text-xs">extension</code> folder from the project source.</li>
+              <li>Pin the Cognivue extension to your toolbar.</li>
+            </ol>
+          </div>
+
+          {/* Connection Status & Key */}
+          <div className="rounded-2xl border border-white/5 bg-slate-950/20 p-6 backdrop-blur-md flex flex-col gap-4 text-left">
+            <h4 className="text-lg font-bold text-white mb-2 flex items-center justify-between">
+              <span>Extension Connection</span>
+              {latestActivity ? (
+                <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-md">Connected</span>
+              ) : (
+                <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 bg-white/5 border border-white/10 px-2 py-1 rounded-md">Waiting for connection</span>
+              )}
+            </h4>
+            
+            {mismatchWarning && (
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-4 mb-2">
+                <p className="text-sm font-semibold text-amber-400">
+                  Extension is linked to a different account. Reconnect using the new key.
+                </p>
+              </div>
+            )}
+
+            {userId ? (
+              <>
+                <p className="text-sm text-zinc-400 leading-relaxed mb-1">
+                  To link the extension to your account, click the extension icon and paste your <strong>local demo connection key</strong>:
+                </p>
+
+                <div className="flex items-center gap-2 mb-2">
+                  <input 
+                    type="text" 
+                    readOnly 
+                    value={demoConnectKey} 
+                    className="flex-1 bg-black/40 border border-white/10 text-cyan-300 font-mono text-xs p-2.5 rounded-lg focus:outline-none"
+                  />
+                  <button onClick={copyConnectKey} className="bg-white/10 hover:bg-white/20 border border-white/10 text-white font-semibold text-xs px-4 py-2.5 rounded-lg transition-all">
+                    Copy
+                  </button>
+                </div>
+                
+                <div className="mt-1 text-[11px] text-zinc-500 font-mono">
+                  Linked User ID: <span className="text-cyan-400">{userId.substring(0, 8)}...</span>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-4 mt-2">
+                <p className="text-sm font-semibold text-rose-400">
+                  Login required to generate extension connect key.
+                </p>
+              </div>
+            )}
+
+            {latestActivity && (
+              <div className="mt-2 text-xs text-zinc-400">
+                Latest active domain: <strong className="text-white">{latestActivity.domain}</strong> <br/>
+                Last synced: <span className="text-white opacity-80">{new Date(latestActivity.recorded_at).toLocaleTimeString()}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ================= BOTTOM PRIVACY ASSURANCE SECTION ================= */}

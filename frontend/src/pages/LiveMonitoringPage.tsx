@@ -22,14 +22,15 @@ import {
   AlertTriangle,
   Loader2
 } from 'lucide-react';
-import {
-  getLocalSession,
-  startSession,
-  endSession,
-  getActiveSession,
-  getSessionMetrics
+import { 
+  getLocalSession, 
+  startSession, 
+  endSession, 
+  getActiveSession, 
+  getSessionMetrics, 
+  getExtensionActivity 
 } from '../services/api';
-import type { MetricResponse } from '../services/api';
+import type { SessionResponse, MetricResponse, ExtensionActivityResponse } from '../services/api';
 
 // ==========================================
 // 1. SMOOTH ANIMATED COUNTER HOOK
@@ -83,6 +84,10 @@ const LiveTooltip = ({ active, payload }: LiveTooltipProps) => {
 
 export const LiveMonitoringPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState('Live Monitoring');
+  const [metricsLoopId, setMetricsLoopId] = useState<NodeJS.Timeout | null>(null);
+  
+  // Extension Telemetry State
+  const [extensionActivity, setExtensionActivity] = useState<ExtensionActivityResponse | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [sessionStartTime, setSessionStartTime] = useState<string | null>(null);
   const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
@@ -92,9 +97,7 @@ export const LiveMonitoringPage: React.FC = () => {
   const [latestMetric, setLatestMetric] = useState<MetricResponse | null>(null);
   const [focusStream, setFocusStream] = useState<{ time: string; focus: number; load: number; fatigue: number }[]>([]);
   const [hasBackendOfflineWarning, setHasBackendOfflineWarning] = useState<boolean>(false);
-const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offline'>('Waiting');
-
-  // Responsive window tracking for particle density control (Dynamic Particle Count)
+  const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offline'>('Waiting');
 
   // Stats histories for Session End Summary Modal
   const [sessionMetrics, setSessionMetrics] = useState<any[]>([]);
@@ -136,6 +139,16 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
       try {
         // Query backend for active session
         const activeSess = await getActiveSession(session.userId);
+
+        // Fetch initial extension activity
+        try {
+          const extData = await getExtensionActivity(session.userId);
+          if (extData && extData.length > 0) {
+            setExtensionActivity(extData[0]);
+          }
+        } catch (e) {
+          console.warn("Could not fetch initial extension activity");
+        }
         
         if (activeSess && activeSess.id) {
           // If session is already ended, clear active session ID
@@ -212,8 +225,28 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
       return;
     }
 
-    // 1‑second interval using the stored session start time from state
+    // Update the live timestamp periodically to show elapsed time since last sync
+    const timeUpdateLoop = setInterval(() => {
+      // Force re-render for time elapsed
+      setExtensionActivity(prev => prev ? { ...prev } : null);
+    }, 15000); // 15s
+
+    // 1-second interval using the stored session start time from state
     const timer = setInterval(() => {
+      // Let's also refresh extension activity periodically while active (every 10s)
+      const seconds = Math.floor(Date.now() / 1000);
+      if (seconds % 10 === 0) {
+        const session = getLocalSession();
+        if (session.userId) {
+           getExtensionActivity(session.userId)
+            .then(data => {
+               if (data && data.length > 0) {
+                 setExtensionActivity(data[0]);
+               }
+            }).catch(() => {});
+        }
+      }
+
       if (sessionStartTime) {
         const elapsed = Math.floor((Date.now() - new Date(sessionStartTime).getTime()) / 1000);
         setElapsedSeconds(elapsed >= 0 ? elapsed : 0);
@@ -222,7 +255,10 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
       }
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      clearInterval(timeUpdateLoop);
+    };
   }, [isSessionActive, sessionStartTime]);
 
   // ==========================================
@@ -949,6 +985,36 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
                 ) : (
                   <p className="text-[11px] text-zinc-450 font-semibold mt-0.5 leading-relaxed">
                     Waiting for telemetry
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Card 4: Extension Domain Active Context */}
+            <div className="group relative rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md flex items-start gap-4 hover:scale-[1.01] hover:bg-slate-950/30 transition-all duration-300 select-none text-left">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                <Globe className="h-4.5 w-4.5" />
+              </div>
+              <div className="flex flex-col gap-1 w-full">
+                <h4 className="text-xs font-semibold text-zinc-200 group-hover:text-cyan-400 transition-colors">
+                  Extension telemetry
+                </h4>
+                
+                {isSessionActive && extensionActivity ? (
+                  <div className="flex flex-col gap-2 mt-1 w-full">
+                    <p className="text-[11px] text-zinc-450 font-semibold leading-relaxed truncate">
+                      Active: <span className="text-white">{extensionActivity.domain}</span>
+                    </p>
+                    <div className="text-[10px] text-zinc-500 font-mono flex flex-col gap-0.5">
+                      <span className={extensionActivity.risk_level === 'High' ? 'text-rose-450' : 'text-emerald-400'}>
+                        {extensionActivity.category} · {extensionActivity.mode}
+                      </span>
+                      <span>Tab switches: {extensionActivity.tab_switches}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-zinc-450 font-semibold mt-0.5 leading-relaxed">
+                    Waiting for extension link
                   </p>
                 )}
               </div>

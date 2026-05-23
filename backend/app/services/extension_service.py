@@ -40,13 +40,17 @@ class ExtensionService:
 
             # 2. Construct and insert activity record using backend/server time
             now_iso = datetime.now(timezone.utc).isoformat()
+            
+            # Dynamically resolve risk level
+            risk_level = "High" if activity_data.detected_mode == "Distracting" else "Low"
+            
             insert_data = {
                 "user_id": str(activity_data.user_id),
                 "domain": activity_data.domain,
-                "category": activity_data.category,
-                "mode": activity_data.mode,
-                "risk_level": activity_data.risk_level,
-                "active_duration_seconds": activity_data.active_duration_seconds,
+                "category": activity_data.activity_category,
+                "mode": activity_data.detected_mode,
+                "risk_level": risk_level,
+                "active_duration_seconds": activity_data.time_spent,
                 "tab_switches": activity_data.tab_switches,
                 "recorded_at": now_iso
             }

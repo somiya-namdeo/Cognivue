@@ -3,8 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { DashboardLayout } from '../components/DashboardLayout';
-import { getCurrentUserProfile, getLocalSession, getDashboardAnalytics, getAIInsights } from '../services/api';
-import type { DashboardAnalytics, AdvancedAIInsightsResponse } from '../services/api';
+import { getCurrentUserProfile, getLocalSession, getDashboardAnalytics, getAIInsights, getExtensionActivity } from '../services/api';
+import type { DashboardAnalytics, AdvancedAIInsightsResponse, ExtensionActivityResponse } from '../services/api';
 import { MetricCards } from '../components/MetricCards';
 import { 
   AttentionLoadChart, 
@@ -41,6 +41,7 @@ export const DashboardPage: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(true);
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
   const [aiInsights, setAiInsights] = useState<AdvancedAIInsightsResponse | null>(null);
+  const [extActivity, setExtActivity] = useState<ExtensionActivityResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -64,7 +65,16 @@ export const DashboardPage: React.FC = () => {
         const insightsData = await getAIInsights(session.userId);
         setAiInsights(insightsData);
       } catch (err) {
-        console.warn("Failed to load Advanced AI Insights, falling back to basic session analytics", err);
+        console.warn("Failed to load Advanced AI Insights", err);
+      }
+      
+      try {
+        const extData = await getExtensionActivity(session.userId);
+        if (extData && extData.length > 0) {
+          setExtActivity(extData[0]);
+        }
+      } catch (err) {
+        console.warn("Failed to load Extension Activity", err);
       }
     } catch (err: any) {
       console.error("Failed to fetch dashboard analytics:", err);
@@ -89,6 +99,21 @@ export const DashboardPage: React.FC = () => {
         title: topAI.title,
         description: topAI.summary,
         type: (topAI.severity === 'positive' ? 'positive' : (topAI.severity === 'warning' || topAI.severity === 'critical') ? 'warning' : 'neutral') as 'positive' | 'warning' | 'neutral'
+      }];
+    }
+    
+    // Prioritize 2: Browser Extension context
+    if (extActivity && extActivity.risk_level === 'High') {
+      return [{
+        title: "High Risk Browsing Activity",
+        description: `You recently spent time on ${extActivity.domain} (${extActivity.category}). Consider closing distracting tabs to regain focus.`,
+        type: "warning" as 'positive' | 'warning' | 'neutral'
+      }];
+    } else if (extActivity && extActivity.risk_level === 'Low' && extActivity.mode === 'Productive') {
+      return [{
+        title: "Productive Flow Maintained",
+        description: `Your active domain ${extActivity.domain} aligns with your focus goals. Great work!`,
+        type: "positive" as 'positive' | 'warning' | 'neutral'
       }];
     }
 
@@ -135,7 +160,7 @@ export const DashboardPage: React.FC = () => {
       description: "Keep tracking your deep work to unlock more precise behavioral coaching.",
       type: "neutral" as 'positive' | 'warning' | 'neutral'
     }];
-  }, [analytics, aiInsights]);
+  }, [analytics, aiInsights, extActivity]);
 
   // Animation variants for panel transitions
   const fadeVariants: Variants = {
