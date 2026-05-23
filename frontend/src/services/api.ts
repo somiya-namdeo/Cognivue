@@ -63,6 +63,8 @@ export interface MetricCreateRequest {
   cognitive_load: number;
   focus_score: number;
   fatigue_score: number;
+  ui_attention_label?: string;
+  ui_posture_label?: string;
 }
 
 export interface MetricResponse extends MetricCreateRequest {

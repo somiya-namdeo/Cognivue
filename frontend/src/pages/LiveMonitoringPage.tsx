@@ -490,7 +490,6 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
   // ==========================================
   const animatedFocusScore = useAnimatedCounter(isSessionActive && latestMetric ? latestMetric.focus_score : 0);
   const animatedBlinkRate = useAnimatedCounter(isSessionActive && latestMetric ? latestMetric.blink_rate : 0);
-  const animatedCognitiveLoad = useAnimatedCounter(isSessionActive && latestMetric ? latestMetric.cognitive_load : 0);
   const animatedFatigueScore = useAnimatedCounter(isSessionActive && latestMetric ? latestMetric.fatigue_score : 0);
 
   // ==========================================
@@ -890,32 +889,39 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
             
             {/* Card 1: Flow detected */}
             <div className="group relative rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md flex items-start gap-4 hover:scale-[1.01] hover:bg-slate-950/30 transition-all duration-300 select-none text-left">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                <Sparkles className="h-4.5 w-4.5 animate-pulse" />
+              <div className={`flex h-9 w-9 items-center justify-center rounded-xl border ${isSessionActive && latestMetric?.attention_state === 'Focused' && latestMetric.focus_score >= 70 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/5 border-white/10 text-zinc-500'}`}>
+                <Sparkles className={`h-4.5 w-4.5 ${isSessionActive && latestMetric?.attention_state === 'Focused' && latestMetric.focus_score >= 70 ? 'animate-pulse' : ''}`} />
               </div>
               <div className="flex flex-col gap-1">
                 <h4 className="text-xs font-semibold text-zinc-200 group-hover:text-cyan-400 transition-colors">
-                  Flow state detected
+                  {!isSessionActive ? 'Waiting for telemetry' 
+                    : latestMetric?.attention_state === 'Focused' && latestMetric.focus_score >= 70 ? 'Flow state detected' 
+                    : (latestMetric?.attention_state === 'Distracted' || latestMetric?.ui_attention_label === 'Away') ? 'Focus interruption detected' 
+                    : 'Not in flow'}
                 </h4>
                 <p className="text-[11px] text-zinc-450 font-semibold mt-0.5 leading-relaxed">
-                  Suppressing notifications for 25 min.
+                  {!isSessionActive ? 'Start a monitoring session to receive adaptive nudges.' 
+                    : latestMetric?.attention_state === 'Focused' && latestMetric.focus_score >= 70 ? 'Stable focus detected. Continue current work block.' 
+                    : (latestMetric?.attention_state === 'Distracted' || latestMetric?.ui_attention_label === 'Away') ? 'Consider removing distractions or taking a short reset.' 
+                    : 'Waiting for sustained focus...'}
                 </p>
               </div>
             </div>
 
             {/* Card 2: Posture Alert */}
             <div className="group relative rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md flex items-start gap-4 hover:scale-[1.01] hover:bg-slate-950/30 transition-all duration-300 select-none text-left">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                <AlertTriangle className="h-4.5 w-4.5 animate-pulse" />
+              <div className={`flex h-9 w-9 items-center justify-center rounded-xl border ${isSessionActive && latestMetric?.posture_status === 'Slouched' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400'}`}>
+                <AlertTriangle className={`h-4.5 w-4.5 ${isSessionActive && latestMetric?.posture_status === 'Slouched' ? 'animate-pulse' : ''}`} />
               </div>
               <div className="flex flex-col gap-1">
                 <h4 className="text-xs font-semibold text-zinc-200 group-hover:text-cyan-400 transition-colors">
                   Posture drift
                 </h4>
                 <p className="text-[11px] text-zinc-450 font-semibold mt-0.5 leading-relaxed">
-                  {isSessionActive && latestMetric?.posture_status === 'Slouched' 
-                    ? 'Slouch detected! Recalibrate posture alignment now.' 
-                    : 'Upright and supported alignment active.'}
+                  {!isSessionActive || !latestMetric ? 'Posture unavailable'
+                    : latestMetric.ui_posture_label === 'Upright' ? 'Posture stable'
+                    : latestMetric.ui_posture_label === 'Unknown' ? 'Posture unavailable'
+                    : 'Posture drift detected'}
                 </p>
               </div>
             </div>
@@ -929,23 +935,22 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
                 <h4 className="text-xs font-semibold text-zinc-200 group-hover:text-cyan-400 transition-colors">
                   Load status
                 </h4>
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                  <div className="text-zinc-400 text-xs mb-1">Consistency</div>
-                  <div className="text-2xl font-bold text-white">
-                    {summaryData?.isPoorTracking ? '--' : `${summaryData?.consistency}%`}
+                
+                {isSessionActive && latestMetric ? (
+                  <div className="flex flex-col gap-2 mt-1">
+                    <p className="text-[11px] text-zinc-450 font-semibold leading-relaxed">
+                      Cognitive workload index: {latestMetric.cognitive_load || '--'}%
+                    </p>
+                    <div className="text-[10px] text-zinc-500 font-mono flex flex-col gap-0.5">
+                      <span>Consistency: --</span>
+                      <span>Telemetry Quality: {latestMetric.gaze_status === 'Off Screen' ? 'Poor' : latestMetric.gaze_status === 'Uncertain' ? 'Partial' : 'Good'}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                  <div className="text-zinc-400 text-xs mb-1">Telemetry Quality</div>
-                  <div className={`text-xl font-bold ${summaryData?.telemetryQuality === 'Excellent' ? 'text-emerald-400' : summaryData?.telemetryQuality === 'Good' ? 'text-cyan-400' : summaryData?.telemetryQuality === 'Partial' ? 'text-yellow-400' : 'text-rose-400'}`}>
-                    {summaryData?.telemetryQuality}
-                  </div>
-                </div>
-                <p className="text-[11px] text-zinc-450 font-semibold mt-0.5 leading-relaxed">
-                  {isSessionActive && latestMetric 
-                    ? `Cognitive workload index: ${animatedCognitiveLoad}%`
-                    : 'System standby.'}
-                </p>
+                ) : (
+                  <p className="text-[11px] text-zinc-450 font-semibold mt-0.5 leading-relaxed">
+                    Waiting for telemetry
+                  </p>
+                )}
               </div>
             </div>
 

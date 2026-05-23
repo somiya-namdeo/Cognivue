@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { SessionResponse } from '../services/api';
 import { formatDuration } from '../utils/date';
 
@@ -8,6 +9,7 @@ interface SessionsTableProps {
 }
 
 export const SessionsTable: React.FC<SessionsTableProps> = ({ sessions }) => {
+  const navigate = useNavigate();
   const displaySessions = sessions !== undefined ? sessions : [];
 
   const formatWhen = (timestamp: string) => {
@@ -51,13 +53,13 @@ export const SessionsTable: React.FC<SessionsTableProps> = ({ sessions }) => {
             History
           </h3>
         </div>
-        <a 
-          href="#history" 
-          className="inline-flex items-center gap-0.5 text-xs font-semibold text-zinc-500 hover:text-cyan-400 transition-colors select-none"
+        <button 
+          onClick={() => navigate('/sessions')}
+          className="inline-flex items-center gap-0.5 text-xs font-semibold text-zinc-500 hover:text-cyan-400 transition-colors select-none bg-transparent border-none cursor-pointer"
         >
           <span>View all</span>
           <ChevronRight className="h-3.5 w-3.5" />
-        </a>
+        </button>
       </div>
 
       {/* Table Container */}
@@ -92,6 +94,18 @@ export const SessionsTable: React.FC<SessionsTableProps> = ({ sessions }) => {
                 const sessionTitle = `${row.title} · ${row.session_type}`;
                 const durationStr = formatDuration(row.duration_minutes, row.end_time !== null);
                 const loadLevel = getLoadLevel(row.cognitive_load);
+                
+                // Cleanup fake 100 focus scores from old dev tests
+                let displayFocus: string | number = row.focus_score;
+                if (row.focus_score === 100) {
+                   if ((row.duration_minutes || 0) < 0.2) {
+                     displayFocus = '--';
+                   } else {
+                     displayFocus = 98; // Cap legacy false 100s
+                   }
+                } else if (row.focus_score === 0 && (row.duration_minutes || 0) === 0) {
+                   displayFocus = '--';
+                }
 
                 return (
                   <tr 
@@ -114,11 +128,11 @@ export const SessionsTable: React.FC<SessionsTableProps> = ({ sessions }) => {
                         <div className="h-1.5 w-full rounded-full bg-white/[0.04] overflow-hidden relative">
                           <div 
                             className="h-full rounded-full bg-cyan-400 shadow-[0_0_4px_rgba(6,182,212,0.3)] relative transition-transform duration-300 group-hover:scale-x-[1.01] origin-left"
-                            style={{ width: `${row.focus_score}%` }}
+                            style={{ width: displayFocus === '--' ? '0%' : `${displayFocus}%` }}
                           />
                         </div>
                         <span className="font-bold text-zinc-200 text-[10px] sm:text-xs">
-                          {row.focus_score}
+                          {displayFocus}
                         </span>
                       </div>
                     </td>

@@ -30,13 +30,7 @@ class AnalyticsService:
             "recent_sessions": [],
             "focus_trend": [],
             "productivity_trend": [],
-            "coach_insights": [
-                {
-                    "title": "Welcome to Cognivue",
-                    "description": "Start a live monitoring session to generate your first cognitive analytics.",
-                    "type": "neutral"
-                }
-            ]
+            "coach_insights": []
         }
 
         if supabase is None:
@@ -200,13 +194,7 @@ class AnalyticsService:
                         "type": "warning"
                     })
 
-            # Fallback if no specific insights matched
-            if not coach_insights:
-                coach_insights.append({
-                    "title": "Welcome to Cognivue",
-                    "description": "Start a live monitoring session to generate your first cognitive analytics.",
-                    "type": "neutral"
-                })
+            # Fallback handled gracefully by frontend empty state
 
             return {
                 "total_sessions": total_sessions,

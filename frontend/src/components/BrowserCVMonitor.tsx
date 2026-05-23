@@ -15,6 +15,7 @@ export function BrowserCVMonitor({ isActive, sessionId }: BrowserCVMonitorProps)
   
   const [permissionState, setPermissionState] = useState<'prompt' | 'granted' | 'denied'>('prompt');
   const [modelStatus, setModelStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [showDebug, setShowDebug] = useState(() => import.meta.env.DEV && localStorage.getItem("debug_cv") === "true");
   const [cvStreamStatus, setCvStreamStatus] = useState<'Waiting' | 'Connected' | 'Offline' | 'Error'>('Waiting');
   
   // Debug UI State (throttled updates to avoid 60FPS re-renders)
@@ -512,8 +513,22 @@ export function BrowserCVMonitor({ isActive, sessionId }: BrowserCVMonitorProps)
         )}
       </div>
 
+      {/* Developer Debug Toggle (Only in DEV mode) */}
+      {import.meta.env.DEV && isActive && (
+        <button 
+          onClick={() => {
+            const newVal = !showDebug;
+            setShowDebug(newVal);
+            localStorage.setItem("debug_cv", newVal.toString());
+          }}
+          className="absolute bottom-4 right-4 z-40 text-[10px] font-mono text-zinc-500 hover:text-white bg-black/50 px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-colors"
+        >
+          Toggle Debug
+        </button>
+      )}
+
       {/* Debug Metrics HUD */}
-      {isActive && permissionState === 'granted' && modelStatus === 'ready' && (
+      {isActive && permissionState === 'granted' && modelStatus === 'ready' && showDebug && (
         <div className="absolute top-4 right-4 z-30 flex flex-col gap-1.5 text-[9px] font-mono text-cyan-400/80 bg-black/60 px-3 py-2 rounded-lg border border-cyan-500/30 backdrop-blur-md w-48 shadow-lg">
           <div className="text-[10px] font-bold text-white border-b border-cyan-500/20 pb-1 mb-1 tracking-wider">DEV DEBUG OVERLAY</div>
           <div className="flex justify-between"><span>Tracking</span> <span className="text-yellow-400">{debugUi.trackingQuality} ({Math.round(metricsRef.current.tracking_confidence * 100)}%)</span></div>

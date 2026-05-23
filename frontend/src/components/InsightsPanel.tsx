@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Sparkles, 
   Activity, 
@@ -14,9 +15,12 @@ export interface CoachInsight {
 
 interface InsightsPanelProps {
   insights?: CoachInsight[];
+  isLoading?: boolean;
+  emptyMessage?: string;
 }
 
-export const InsightsPanel: React.FC<InsightsPanelProps> = ({ insights }) => {
+export const InsightsPanel: React.FC<InsightsPanelProps> = ({ insights, isLoading, emptyMessage = "No insights available yet." }) => {
+  const navigate = useNavigate();
   const displayInsights = insights !== undefined ? insights : [];
 
   const getInsightStyles = (type: 'positive' | 'warning' | 'neutral') => {
@@ -59,9 +63,14 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({ insights }) => {
 
       {/* Stacked insights */}
       <div className="flex flex-col gap-3 my-4">
-        {displayInsights.length === 0 ? (
+        {isLoading ? (
+          <div className="py-8 text-center text-zinc-500 text-xs font-semibold select-none flex items-center justify-center gap-2">
+            <Activity className="h-4 w-4 animate-spin" />
+            Loading insights...
+          </div>
+        ) : displayInsights.length === 0 ? (
           <div className="py-8 text-center text-zinc-500 text-xs font-semibold select-none">
-            No insights generated yet.
+            {emptyMessage}
           </div>
         ) : (
           displayInsights.slice(0, 3).map((insight, idx) => {
@@ -98,13 +107,13 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({ insights }) => {
       </div>
 
       {/* Footer redirection link */}
-      <a 
-        href="#all-insights" 
-        className="inline-flex items-center gap-1 text-xs font-bold text-zinc-500 hover:text-cyan-400 transition-colors mt-1 select-none self-start"
+      <button 
+        onClick={() => navigate('/ai-insights')}
+        className="inline-flex items-center gap-1 text-xs font-bold text-zinc-500 hover:text-cyan-400 transition-colors mt-1 select-none self-start bg-transparent border-none cursor-pointer p-0"
       >
         <span>See all insights</span>
         <ChevronRight className="h-3.5 w-3.5" />
-      </a>
+      </button>
 
     </div>
   );

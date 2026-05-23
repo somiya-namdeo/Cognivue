@@ -3,8 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { DashboardLayout } from '../components/DashboardLayout';
-import { getCurrentUserProfile, getLocalSession, getDashboardAnalytics } from '../services/api';
-import type { DashboardAnalytics } from '../services/api';
+import { getCurrentUserProfile, getLocalSession, getDashboardAnalytics, getAIInsights } from '../services/api';
+import type { DashboardAnalytics, AdvancedAIInsightsResponse } from '../services/api';
 import { MetricCards } from '../components/MetricCards';
 import { 
   AttentionLoadChart, 
@@ -40,6 +40,7 @@ export const DashboardPage: React.FC = () => {
 
   const [isSyncing, setIsSyncing] = useState(true);
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+  const [aiInsights, setAiInsights] = useState<AdvancedAIInsightsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -58,6 +59,13 @@ export const DashboardPage: React.FC = () => {
       
       const data = await getDashboardAnalytics(session.userId);
       setAnalytics(data);
+
+      try {
+        const insightsData = await getAIInsights(session.userId);
+        setAiInsights(insightsData);
+      } catch (err) {
+        console.warn("Failed to load Advanced AI Insights, falling back to basic session analytics", err);
+      }
     } catch (err: any) {
       console.error("Failed to fetch dashboard analytics:", err);
       setApiError("Unable to load dashboard analytics. Please make sure the backend server is running.");
@@ -70,6 +78,64 @@ export const DashboardPage: React.FC = () => {
   useEffect(() => {
     fetchAnalytics();
   }, [location.state]);
+
+  const derivedInsights = React.useMemo(() => {
+    if (!analytics || analytics.total_sessions === 0) return [];
+    
+    // Prioritize 1: Latest AI Insight
+    if (aiInsights?.insights && aiInsights.insights.length > 0) {
+      const topAI = aiInsights.insights[0];
+      return [{
+        title: topAI.title,
+        description: topAI.summary,
+        type: (topAI.severity === 'positive' ? 'positive' : (topAI.severity === 'warning' || topAI.severity === 'critical') ? 'warning' : 'neutral') as 'positive' | 'warning' | 'neutral'
+      }];
+    }
+
+    // Prioritize 2: Telemetry Quality Warning
+    // We can infer poor telemetry if there's an active session with low metrics, but the easiest is using recent sessions
+    const recent = analytics.recent_sessions && analytics.recent_sessions.length > 0 ? analytics.recent_sessions[0] : null;
+    if (recent && recent.focus_score !== undefined && recent.focus_score < 30 && recent.productivity_score < 20) {
+      // It's hard to definitively know telemetry quality here, but we can assume if it's really low, it might be partial.
+      // Alternatively, we use the backend coach_insights logic! The backend analytics service sends basic insights.
+    }
+
+    // Since the prompt asks to derive it based on real session history:
+    const avgFocus = analytics.average_focus;
+    const avgFatigue = analytics.average_fatigue_score;
+    const recentSession = analytics.recent_sessions?.[0];
+
+    if (recentSession && recentSession.focus_score !== null && recentSession.focus_score < 20 && (recentSession.duration_minutes || 0) > 1) {
+       return [{
+         title: "Tracking Instability",
+         description: "Telemetry quality was limited. Complete a stable monitoring session for stronger coaching insights.",
+         type: "warning" as 'positive' | 'warning' | 'neutral'
+       }];
+    }
+
+    if (avgFatigue > 50 || (recentSession && recentSession.fatigue_level === 'High')) {
+      return [{
+        title: "Fatigue indicators suggest recovery breaks",
+        description: "Elevated physical/mental weariness detected across recent history. A brief rest interval is highly recommended.",
+        type: "warning" as 'positive' | 'warning' | 'neutral'
+      }];
+    }
+
+    if (avgFocus >= 80) {
+      return [{
+        title: "Strong focus consistency detected",
+        description: "Your session history shows stable attention performance.",
+        type: "positive" as 'positive' | 'warning' | 'neutral'
+      }];
+    }
+
+    // Fallback based on basic metrics
+    return [{
+      title: "Session data analyzed",
+      description: "Keep tracking your deep work to unlock more precise behavioral coaching.",
+      type: "neutral" as 'positive' | 'warning' | 'neutral'
+    }];
+  }, [analytics, aiInsights]);
 
   // Animation variants for panel transitions
   const fadeVariants: Variants = {
@@ -313,7 +379,7 @@ export const DashboardPage: React.FC = () => {
                 <AttentionLoadChart data={analytics?.focus_trend} />
               </div>
               <div className="lg:col-span-4 w-full">
-                <InsightsPanel insights={analytics?.coach_insights} />
+                <InsightsPanel insights={derivedInsights} isLoading={isLoading} />
               </div>
             </div>
 

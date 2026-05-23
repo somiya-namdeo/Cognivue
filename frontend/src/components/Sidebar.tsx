@@ -108,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">System Status</span>
             <span className="text-xs font-bold text-white flex items-center gap-1.5 mt-0.5">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
-              Local inference active
+              Browser CV Active
             </span>
             <span className="text-[10.5px] font-medium text-zinc-400 mt-1 leading-tight">
               Privacy-first on-device analysis
@@ -119,12 +119,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="w-full">
             <div className="h-1 w-full rounded-full bg-white/[0.04] overflow-hidden">
               <div 
-                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400"
-                style={{ width: '82%' }}
+                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 w-full opacity-50 animate-pulse"
               />
             </div>
             <span className="text-[10px] font-medium text-zinc-500 mt-1.5 block text-left">
-              Model confidence 82%
+              Waiting for session data...
             </span>
           </div>
         </div>
