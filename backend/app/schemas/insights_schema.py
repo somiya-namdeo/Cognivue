@@ -5,7 +5,8 @@ from typing import Optional, List, Dict, Any
 class FocusDriftPoint(BaseModel):
     time: str
     focus: int
-    distraction: int
+    cognitive_load: int
+    fatigue: int
 
 class WeeklyTrendPoint(BaseModel):
     day: str
@@ -57,7 +58,7 @@ class AIInsightCard(BaseModel):
     summary: str
     category: str  # focus | fatigue | productivity | behavior | recovery | anomaly
     severity: str  # positive | neutral | warning | critical
-    confidence: float
+    confidence: str
     recommendation: str
     supporting_metrics: Dict[str, Any]
 

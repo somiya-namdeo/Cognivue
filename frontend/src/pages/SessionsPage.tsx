@@ -19,7 +19,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
-import { getLocalSession, getSessionHistory } from '../services/api';
+import { getLocalSession, getSessionHistory, deleteSession, updateSession } from '../services/api';
 import type { SessionResponse } from '../services/api';
 import { formatLocalDate, formatDuration } from '../utils/date';
 
@@ -31,9 +31,23 @@ export const SessionsPage: React.FC = () => {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [minFocus, setMinFocus] = useState(0);
-  const [focusFilter, setFocusFilter] = useState('All');
+  const [loadFilter, setLoadFilter] = useState('All');
   const [fatigueFilter, setFatigueFilter] = useState('All');
   const [showNotification, setShowNotification] = useState(false);
+
+  // Action Menu States
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  
+  // Modals
+  const [sessionToRename, setSessionToRename] = useState<SessionResponse | null>(null);
+  const [renameTitle, setRenameTitle] = useState('');
+  const [renameType, setRenameType] = useState('');
+
+  const [sessionToDelete, setSessionToDelete] = useState<SessionResponse | null>(null);
+
+  const SESSION_TYPES = [
+    'Deep Work', 'Coding', 'Research', 'Studying', 'Reading', 'Creative Work', 'Meeting', 'Planning', 'Custom'
+  ];
 
   // Sorting state: default is date descending (newest first)
   const [sortBy, setSortBy] = useState<'date' | 'focus' | 'productivity'>('date');
@@ -120,14 +134,18 @@ export const SessionsPage: React.FC = () => {
 
   // Filter sessions based on state
   const filteredSessions = sessions.filter(session => {
-    const matchesSearch = session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          session.session_type.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const domainStr = session.top_domains ? session.top_domains.join(' ').toLowerCase() : '';
+    const matchesSearch = session.title.toLowerCase().includes(searchLower) ||
+                          session.session_type.toLowerCase().includes(searchLower) ||
+                          domainStr.includes(searchLower);
+    
     const matchesMinFocus = session.focus_score >= minFocus;
     
-    let matchesFocusFilter = true;
-    if (focusFilter === 'Low') matchesFocusFilter = session.focus_score < 70;
-    else if (focusFilter === 'Med') matchesFocusFilter = session.focus_score >= 70 && session.focus_score < 85;
-    else if (focusFilter === 'High') matchesFocusFilter = session.focus_score >= 85;
+    let matchesLoadFilter = true;
+    if (loadFilter === 'Low Load') matchesLoadFilter = session.cognitive_load < 40;
+    else if (loadFilter === 'Medium Load') matchesLoadFilter = session.cognitive_load >= 40 && session.cognitive_load < 75;
+    else if (loadFilter === 'High Load') matchesLoadFilter = session.cognitive_load >= 75;
 
     let matchesFatigueFilter = true;
     if (fatigueFilter !== 'All') {
@@ -138,7 +156,7 @@ export const SessionsPage: React.FC = () => {
       }
     }
 
-    return matchesSearch && matchesMinFocus && matchesFocusFilter && matchesFatigueFilter;
+    return matchesSearch && matchesMinFocus && matchesLoadFilter && matchesFatigueFilter;
   });
 
   // Apply stable sorting to filtered sessions
@@ -164,10 +182,10 @@ export const SessionsPage: React.FC = () => {
 
   // Export actual real session history to CSV
   const handleExport = () => {
-    if (sessions.length === 0) return;
+    if (filteredSessions.length === 0) return;
     
-    const headers = ['Session Title', 'Session Type', 'Start Time (UTC)', 'End Time (UTC)', 'Duration', 'Focus Score', 'Cognitive Load', 'Fatigue Level', 'Productivity Score'];
-    const rows = sessions.map(session => [
+    const headers = ['Session Title', 'Session Type', 'Start Time (UTC)', 'End Time (UTC)', 'Duration', 'Avg Focus', 'Cognitive Load', 'Fatigue Level', 'Productivity Score', 'Top Domains'];
+    const rows = filteredSessions.map(session => [
       `"${session.title.replace(/"/g, '""')}"`,
       `"${session.session_type.replace(/"/g, '""')}"`,
       `"${session.start_time}"`,
@@ -176,7 +194,8 @@ export const SessionsPage: React.FC = () => {
       session.focus_score,
       session.cognitive_load,
       session.end_time === null ? 'Active' : session.fatigue_level,
-      session.productivity_score
+      session.productivity_score,
+      `"${session.top_domains ? session.top_domains.join(' | ') : ''}"`
     ]);
 
     const csvContent = "data:text/csv;charset=utf-8," 
@@ -209,6 +228,37 @@ export const SessionsPage: React.FC = () => {
         return 'bg-rose-500/10 border border-rose-500/20 text-rose-400';
       default:
         return 'bg-zinc-500/10 border border-zinc-500/20 text-zinc-400';
+    }
+  };
+
+  // Action Handlers
+  const handleRenameSubmit = async () => {
+    if (!sessionToRename) return;
+    setIsLoading(true);
+    try {
+      const updated = await updateSession(sessionToRename.id, renameTitle, renameType);
+      setSessions(sessions.map(s => s.id === updated.id ? updated : s));
+      setSessionToRename(null);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to rename session.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!sessionToDelete) return;
+    setIsLoading(true);
+    try {
+      await deleteSession(sessionToDelete.id);
+      setSessions(sessions.filter(s => s.id !== sessionToDelete.id));
+      setSessionToDelete(null);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to delete session.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -350,14 +400,14 @@ export const SessionsPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* 4. Focus filter tabs toggle */}
+            {/* 4. Load filter tabs toggle */}
             <div className="flex items-center rounded-xl border border-white/5 bg-slate-950/20 p-1 backdrop-blur-md">
-              {['All', 'Low', 'Med', 'High'].map((tab) => (
+              {['All', 'Low Load', 'Medium Load', 'High Load'].map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setFocusFilter(tab)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
-                    focusFilter === tab 
+                  onClick={() => setLoadFilter(tab)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all whitespace-nowrap ${
+                    loadFilter === tab 
                       ? 'bg-white/[0.04] text-white shadow-inner border border-white/[0.02]' 
                       : 'text-zinc-500 hover:text-zinc-300'
                   }`}
@@ -370,7 +420,7 @@ export const SessionsPage: React.FC = () => {
             {/* 5. Export CSV Action */}
             <button 
               onClick={handleExport}
-              disabled={sessions.length === 0}
+              disabled={filteredSessions.length === 0}
               className="flex items-center gap-2 px-4.5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500/10 to-violet-500/10 border border-cyan-500/20 text-xs font-bold text-white hover:border-cyan-500/35 hover:shadow-[0_0_12px_rgba(6,182,212,0.1)] transition-all cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Download className="h-3.5 w-3.5" />
@@ -487,7 +537,7 @@ export const SessionsPage: React.FC = () => {
                       )}
                     </div>
                   </th>
-                  <th className="pb-5 text-[11px] uppercase tracking-[0.1em] text-white/45 font-bold">Tags</th>
+                  <th className="pb-5 text-[11px] uppercase tracking-[0.1em] text-white/45 font-bold">Type</th>
                   <th className="pb-5 text-right text-[11px] uppercase tracking-[0.1em] text-white/45 font-bold pr-2">Action</th>
                 </tr>
               </thead>
@@ -501,8 +551,18 @@ export const SessionsPage: React.FC = () => {
                       key={session.id}
                       className="group even:bg-white/[0.005] hover:bg-cyan-500/[0.015] hover:shadow-[inset_0_0_12px_rgba(6,182,212,0.02)] transition-all duration-300"
                     >
-                      <td className="py-[22px] pr-4 text-[15px] font-bold text-white group-hover:text-cyan-400 transition-colors antialiased">
-                        {session.title}
+                      <td className="py-[22px] pr-4">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[15px] font-bold text-white group-hover:text-cyan-400 transition-colors antialiased">
+                            {session.title}
+                          </span>
+                          {session.top_domains && session.top_domains.length > 0 && (
+                            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide flex items-center gap-1.5">
+                              <span className="w-1 h-1 rounded-full bg-violet-500/80"></span>
+                              {session.top_domains.join(' + ')} dominant
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-[22px] pr-4 text-[13px] text-zinc-300 font-semibold">
                         {formatLocalDate(session.start_time)}
@@ -532,15 +592,48 @@ export const SessionsPage: React.FC = () => {
                       </td>
                       <td className="py-[22px] pr-4">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.05] text-[10px] font-extrabold text-zinc-300 uppercase tracking-wider">
+                          <span className="px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-extrabold text-indigo-300 uppercase tracking-wider">
                             {session.session_type}
                           </span>
                         </div>
                       </td>
-                      <td className="py-[22px] text-right pr-2">
-                        <button className="h-7 w-7 rounded-lg hover:bg-white/[0.04] border border-transparent hover:border-white/[0.04] flex items-center justify-center text-zinc-500 hover:text-white transition-all ml-auto">
+                      <td className="py-[22px] text-right pr-2 relative">
+                        <button 
+                          onClick={() => setActiveMenuId(activeMenuId === session.id ? null : session.id)}
+                          className={`h-7 w-7 rounded-lg border flex items-center justify-center transition-all ml-auto ${activeMenuId === session.id ? 'bg-white/[0.08] border-white/[0.08] text-white' : 'hover:bg-white/[0.04] border-transparent hover:border-white/[0.04] text-zinc-500 hover:text-white'}`}
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                         </button>
+                        
+                        {/* Dropdown Menu */}
+                        {activeMenuId === session.id && (
+                          <>
+                            <div className="fixed inset-0 z-30" onClick={() => setActiveMenuId(null)}></div>
+                            <div className="absolute right-8 top-16 z-40 w-40 rounded-xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl py-1 overflow-hidden flex flex-col text-left text-xs font-semibold animate-in fade-in zoom-in-95 duration-100">
+                              <button 
+                                onClick={() => {
+                                  setRenameTitle(session.title);
+                                  setRenameType(session.session_type);
+                                  setSessionToRename(session);
+                                  setActiveMenuId(null);
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-zinc-300 hover:text-white hover:bg-white/5 transition-colors"
+                              >
+                                Rename Session
+                              </button>
+                              <div className="w-full h-px bg-white/5 my-0.5"></div>
+                              <button 
+                                onClick={() => {
+                                  setSessionToDelete(session);
+                                  setActiveMenuId(null);
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+                              >
+                                Delete Session
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </td>
                     </tr>
                   );
@@ -559,6 +652,89 @@ export const SessionsPage: React.FC = () => {
         </div>
 
       </motion.div>
+
+      {/* RENAME MODAL */}
+      {sessionToRename && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/90 p-6 shadow-2xl backdrop-blur-xl flex flex-col gap-5 text-left"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white tracking-tight">Rename Session</h3>
+              <button onClick={() => setSessionToRename(null)} className="text-zinc-500 hover:text-white transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] uppercase tracking-wider text-white/50 font-bold">Session Title</label>
+                <input 
+                  type="text" 
+                  value={renameTitle}
+                  onChange={(e) => setRenameTitle(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-2.5 text-sm font-semibold text-white focus:border-cyan-500/50 focus:outline-none transition-all"
+                  autoFocus
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] uppercase tracking-wider text-white/50 font-bold">Session Type</label>
+                <select 
+                  value={renameType}
+                  onChange={(e) => setRenameType(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-2.5 text-sm font-semibold text-white focus:border-cyan-500/50 focus:outline-none transition-all cursor-pointer appearance-none"
+                >
+                  {SESSION_TYPES.map(type => (
+                    <option key={type} value={type} className="bg-slate-900">{type}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button onClick={() => setSessionToRename(null)} className="flex-1 rounded-xl border border-white/10 px-4 py-2.5 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/[0.02] transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleRenameSubmit} className="flex-1 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 px-4 py-2.5 text-xs font-bold text-white hover:from-cyan-400 hover:to-violet-500 transition-all shadow-lg shadow-cyan-500/20">
+                Save Changes
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* DELETE MODAL */}
+      {sessionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/90 p-6 shadow-2xl backdrop-blur-xl flex flex-col gap-5 text-left"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-rose-400 tracking-tight flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Delete Session
+              </h3>
+              <button onClick={() => setSessionToDelete(null)} className="text-zinc-500 hover:text-white transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-[13px] text-white/70 leading-relaxed font-medium">
+              Are you sure you want to permanently delete <strong className="text-white">"{sessionToDelete.title}"</strong>? This action cannot be undone and will remove associated telemetry.
+            </p>
+            <div className="flex items-center gap-3 pt-2">
+              <button onClick={() => setSessionToDelete(null)} className="flex-1 rounded-xl border border-white/10 px-4 py-2.5 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/[0.02] transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleDeleteConfirm} className="flex-1 rounded-xl bg-rose-500/20 border border-rose-500/30 px-4 py-2.5 text-xs font-bold text-rose-400 hover:bg-rose-500/30 hover:border-rose-500/50 transition-all">
+                Yes, Delete
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
     </DashboardLayout>
   );
 };

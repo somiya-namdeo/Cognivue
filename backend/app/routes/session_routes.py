@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status, HTTPException
 from typing import List
 from uuid import UUID
-from app.schemas.session_schema import SessionStartRequest, SessionEndRequest, SessionResponse
+from app.schemas.session_schema import SessionStartRequest, SessionEndRequest, SessionResponse, SessionUpdateRequest
 from app.services.session_service import SessionService
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
@@ -39,6 +39,40 @@ async def end_session(session_data: SessionEndRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred while ending session: {str(e)}"
+        )
+
+@router.put("/{session_id}", response_model=SessionResponse, status_code=status.HTTP_200_OK)
+async def update_session(session_id: UUID, session_data: SessionUpdateRequest):
+    """
+    Update session title or session_type.
+    """
+    # TODO: Protect this route with auth before production.
+    try:
+        session = await SessionService.update_session(session_id, title=session_data.title, session_type=session_data.session_type)
+        return session
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred while updating session: {str(e)}"
+        )
+
+@router.delete("/{session_id}", status_code=status.HTTP_200_OK)
+async def delete_session(session_id: UUID):
+    """
+    Delete a session.
+    """
+    # TODO: Protect this route with auth before production.
+    try:
+        result = await SessionService.delete_session(session_id)
+        return result
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred while deleting session: {str(e)}"
         )
 
 @router.get("/history/{user_id}", response_model=List[SessionResponse], status_code=status.HTTP_200_OK)

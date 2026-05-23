@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 from uuid import UUID
 
 class SessionStartRequest(BaseModel):
@@ -17,6 +17,10 @@ class SessionEndRequest(BaseModel):
     # Optional end_time from frontend; ignored server‑side
     end_time: Optional[str] = None
 
+class SessionUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    session_type: Optional[str] = None
+
 class SessionResponse(BaseModel):
     id: UUID
     user_id: UUID
@@ -30,3 +34,4 @@ class SessionResponse(BaseModel):
     fatigue_level: Literal["Low", "Medium", "High"]
     productivity_score: int
     created_at: datetime
+    top_domains: List[str] = []

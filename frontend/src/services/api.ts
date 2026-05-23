@@ -36,6 +36,7 @@ export interface SessionResponse {
   fatigue_level: 'Low' | 'Medium' | 'High';
   productivity_score: number;
   created_at: string;
+  top_domains?: string[];
 }
 
 export interface SessionStartRequest {
@@ -202,6 +203,27 @@ export async function endSession(sessionData: SessionEndRequest): Promise<Sessio
   return handleResponse<SessionResponse>(response);
 }
 
+export async function updateSession(sessionId: string, title?: string, sessionType?: string): Promise<SessionResponse> {
+  const payload: any = {};
+  if (title) payload.title = title;
+  if (sessionType) payload.session_type = sessionType;
+
+  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<SessionResponse>(response);
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  return handleResponse<void>(response);
+}
+
 export async function getActiveSession(userId: string): Promise<SessionResponse> {
   const response = await fetch(`${API_BASE_URL}/sessions/active/${userId}`, {
     method: 'GET',
@@ -340,7 +362,7 @@ export interface AIInsightCard {
   summary: string;
   category: string; // focus | fatigue | productivity | behavior | recovery | anomaly
   severity: string; // positive | neutral | warning | critical
-  confidence: number;
+  confidence: string;
   recommendation: string;
   supporting_metrics: Record<string, any>;
 }
@@ -348,7 +370,8 @@ export interface AIInsightCard {
 export interface FocusDriftPoint {
   time: string;
   focus: number;
-  distraction: number;
+  cognitive_load: number;
+  fatigue: number;
 }
 
 export interface WeeklyTrendPoint {
@@ -368,7 +391,7 @@ export interface FatigueCorrelationPoint {
 export interface ProductivityPatternPoint {
   domain: string;
   score: number;
-  full_mark?: number;
+  full_mark: number;
 }
 
 export interface AdvancedAIInsightsResponse {

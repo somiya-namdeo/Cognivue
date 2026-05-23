@@ -201,6 +201,65 @@ class SessionService:
             )
 
     @staticmethod
+    async def update_session(session_id: UUID, title: str = None, session_type: str = None) -> dict:
+        """
+        Updates session title or session_type.
+        """
+        if supabase is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database service is currently unavailable."
+            )
+        
+        update_data = {}
+        if title is not None:
+            update_data["title"] = title
+        if session_type is not None:
+            update_data["session_type"] = session_type
+            
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No fields provided to update.")
+            
+        try:
+            update_response = supabase.table("focus_sessions") \
+                .update(update_data) \
+                .eq("id", str(session_id)) \
+                .execute()
+                
+            if not update_response.data or len(update_response.data) == 0:
+                raise HTTPException(status_code=404, detail="Session not found.")
+                
+            return SessionService._enrich_session_duration(update_response.data[0])
+        except Exception as e:
+            logger.error(f"Failed to update session: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to update session: {str(e)}")
+
+    @staticmethod
+    async def delete_session(session_id: UUID):
+        """
+        Deletes a session from the database.
+        """
+        if supabase is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database service is currently unavailable."
+            )
+            
+        try:
+            delete_response = supabase.table("focus_sessions") \
+                .delete() \
+                .eq("id", str(session_id)) \
+                .execute()
+                
+            if not delete_response.data or len(delete_response.data) == 0:
+                raise HTTPException(status_code=404, detail="Session not found.")
+                
+            return {"detail": "Session deleted successfully."}
+        except Exception as e:
+            logger.error(f"Failed to delete session: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete session: {str(e)}")
+
+    @staticmethod
     async def get_user_sessions(user_id: UUID) -> list:
         """
         Retrieves history of focus sessions for a user ordered by created_at descending.
@@ -220,6 +279,46 @@ class SessionService:
                 
             # Enrich all sessions before returning to client
             enriched_sessions = [SessionService._enrich_session_duration(s) for s in response.data]
+            
+            # Fetch domain aggregations dynamically
+            if enriched_sessions:
+                session_ids = [s["id"] for s in enriched_sessions]
+                try:
+                    metrics_response = supabase.table("cognitive_metrics") \
+                        .select("session_id, active_tab") \
+                        .in_("session_id", session_ids) \
+                        .execute()
+                    if metrics_response.data:
+                        from collections import defaultdict
+                        from urllib.parse import urlparse
+                        
+                        domain_counts = defaultdict(lambda: defaultdict(int))
+                        for metric in metrics_response.data:
+                            active_tab = metric.get("active_tab", "")
+                            if active_tab and active_tab.startswith("http"):
+                                try:
+                                    domain = urlparse(active_tab).netloc.replace("www.", "")
+                                    if domain:
+                                        domain_counts[metric["session_id"]][domain] += 1
+                                except Exception:
+                                    pass
+                                    
+                        for session in enriched_sessions:
+                            sid = session["id"]
+                            if sid in domain_counts and domain_counts[sid]:
+                                # Get top 2 domains
+                                sorted_domains = sorted(domain_counts[sid].items(), key=lambda x: x[1], reverse=True)
+                                session["top_domains"] = [d[0] for d in sorted_domains[:2]]
+                            else:
+                                session["top_domains"] = []
+                    else:
+                        for session in enriched_sessions:
+                            session["top_domains"] = []
+                except Exception as e:
+                    logger.error(f"Failed to fetch metrics for domains aggregation: {e}")
+                    for session in enriched_sessions:
+                        session["top_domains"] = []
+            
             return enriched_sessions
         except Exception as e:
             error_msg = str(e)

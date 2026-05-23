@@ -82,7 +82,7 @@ class InsightsService:
                     summary="Our hybrid telemetry engine analyses body posture drift, eye blink rate shifts, load volatility, and focus metrics in real-time.",
                     category="behavior",
                     severity="neutral",
-                    confidence=1.0,
+                    confidence="Calibration Phase",
                     recommendation="Perform your first focus tracking session to populate these statistics and establish calibration curves.",
                     supporting_metrics={}
                 )
@@ -92,33 +92,10 @@ class InsightsService:
                 "Ensure your webcam has clear facial illumination for gaze analysis.",
                 "Sit upright to calibrate the body posture sensor baseline."
             ],
-            focus_drift_timeline=[
-                FocusDriftPoint(time="00:00", focus=80, distraction=10),
-                FocusDriftPoint(time="10:00", focus=85, distraction=5),
-                FocusDriftPoint(time="20:00", focus=60, distraction=40),
-                FocusDriftPoint(time="30:00", focus=75, distraction=15)
-            ],
-            weekly_trends=[
-                WeeklyTrendPoint(day="Mon", focus=70, fatigue=30, productivity=65, duration=120),
-                WeeklyTrendPoint(day="Tue", focus=75, fatigue=35, productivity=70, duration=150),
-                WeeklyTrendPoint(day="Wed", focus=65, fatigue=50, productivity=60, duration=90),
-                WeeklyTrendPoint(day="Thu", focus=80, fatigue=20, productivity=85, duration=180),
-                WeeklyTrendPoint(day="Fri", focus=85, fatigue=15, productivity=90, duration=200),
-                WeeklyTrendPoint(day="Sat", focus=60, fatigue=10, productivity=50, duration=45),
-                WeeklyTrendPoint(day="Sun", focus=55, fatigue=5, productivity=40, duration=30)
-            ],
-            fatigue_correlation=[
-                FatigueCorrelationPoint(time="00:00", blink_rate=12, fatigue=10),
-                FatigueCorrelationPoint(time="15:00", blink_rate=15, fatigue=15),
-                FatigueCorrelationPoint(time="30:00", blink_rate=22, fatigue=35),
-                FatigueCorrelationPoint(time="45:00", blink_rate=28, fatigue=50)
-            ],
-            productivity_patterns=[
-                ProductivityPatternPoint(domain="Coding", score=85),
-                ProductivityPatternPoint(domain="Reading", score=70),
-                ProductivityPatternPoint(domain="Writing", score=65),
-                ProductivityPatternPoint(domain="Meetings", score=40)
-            ]
+            focus_drift_timeline=[],
+            weekly_trends=[],
+            fatigue_correlation=[],
+            productivity_patterns=[]
         )
 
         if supabase is None:
@@ -139,10 +116,9 @@ class InsightsService:
 
             # Enrich sessions to calculate duration_minutes dynamically
             all_sessions = [SessionService._enrich_session_duration(s) for s in raw_sessions]
-            ended_sessions = [s for s in all_sessions if s.get("end_time") is not None]
             
-            if not ended_sessions:
-                return default_response
+            # Use all sessions for insights (even if not explicitly ended)
+            ended_sessions = all_sessions
 
             # 3. Query all metrics for these sessions
             session_ids = [s["id"] for s in all_sessions]
@@ -163,10 +139,10 @@ class InsightsService:
             total_ended = len(ended_sessions)
             total_focus_minutes = sum(s.get("duration_minutes", 0.0) for s in ended_sessions)
             
-            average_focus = sum(s.get("focus_score", 0) for s in ended_sessions) / total_ended
-            best_focus = max(s.get("focus_score", 0) for s in ended_sessions)
-            average_productivity = sum(s.get("productivity_score", 0) for s in ended_sessions) / total_ended
-            average_cognitive_load = sum(s.get("cognitive_load", 0) for s in ended_sessions) / total_ended
+            average_focus = sum((s.get("focus_score") or 0) for s in ended_sessions) / total_ended
+            best_focus = max((s.get("focus_score") or 0) for s in ended_sessions)
+            average_productivity = sum((s.get("productivity_score") or 0) for s in ended_sessions) / total_ended
+            average_cognitive_load = sum((s.get("cognitive_load") or 0) for s in ended_sessions) / total_ended
             average_session_length = total_focus_minutes / total_ended
             session_completion_rate = (total_ended / total_sessions) * 100.0
             
@@ -175,7 +151,7 @@ class InsightsService:
                 s for s in ended_sessions 
                 if s.get("session_type") == "Deep Work" 
                 or s.get("duration_minutes", 0.0) >= 30.0 
-                or s.get("focus_score", 0) >= 80
+                or (s.get("focus_score") or 0) >= 80
             ]
             deep_work_ratio = len(deep_work_sessions) / total_ended
 
@@ -224,7 +200,7 @@ class InsightsService:
                     if created_at_str:
                         try:
                             dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-                            hour_focus[dt.hour].append(s.get("focus_score", 0))
+                            hour_focus[dt.hour].append(s.get("focus_score") or 0)
                         except Exception:
                             pass
 
@@ -269,28 +245,71 @@ class InsightsService:
             productivity_momentum = (average_productivity * 0.5) + (session_completion_rate * 0.25) + duration_completed_bonus
             productivity_momentum = max(10.0, min(100.0, productivity_momentum))
 
-            # 8. Dynamic NLP summary generation based on metrics
-            if burnout_risk > 65.0:
+            # 8. Calculate dynamic confidence score based on telemetry quality
+            if total_ended == 1:
+                base_confidence = 35
+            elif 2 <= total_ended <= 4:
+                base_confidence = 55
+            elif 5 <= total_ended <= 9:
+                base_confidence = 75
+            else:
+                base_confidence = 90
+                
+            # Honest confidence penalties for poor/missing telemetry
+            if average_session_length < 1.0:
+                base_confidence -= 20
+            elif average_session_length < 2.0:
+                base_confidence -= 10
+                
+            if not all_metrics:
+                base_confidence -= 30
+            else:
+                if gaze_distraction_pct > 50.0:
+                    base_confidence -= 15
+                
+                # Check for extremely sparse metrics vs duration
+                metrics_per_minute = len(all_metrics) / total_focus_minutes if total_focus_minutes > 0 else 0
+                if total_focus_minutes > 1.0 and metrics_per_minute < 5.0:
+                    base_confidence -= 15
+                
+            base_confidence = max(15, min(100, int(base_confidence)))
+            conf_norm = base_confidence / 100.0
+
+            # 9. Dynamic NLP summary generation based on metrics
+            if total_ended == 0:
+                overall_summary = "Calibration in progress. Your Hybrid AI Insights Engine requires at least one completed focus session to establish a predictive cognitive baseline."
+            elif burnout_risk > 65.0:
                 overall_summary = (
-                    f"Hybrid telemetry signals highly elevated cognitive exhaustion (Burnout risk: {burnout_risk:.1f}%). "
-                    f"Although your focus score remains stable, your visual distractions (Gaze drop: {gaze_distraction_pct:.1f}%) "
-                    f"and high load volatility indicates screen strain. Scheduled breaks are urgently recommended."
+                    f"Your telemetry signals elevated cognitive exhaustion (Burnout risk: {burnout_risk:.1f}%). "
+                    f"Although focus remains partially stable, visual distractions (Gaze drop: {gaze_distraction_pct:.1f}%) "
+                    f"and load volatility indicate increasing strain. Scheduled tactical breaks are highly recommended."
                 )
-            elif average_focus >= 80.0 and avg_fatigue < 35.0:
+            elif average_focus >= 75.0 and avg_fatigue < 40.0:
                 overall_summary = (
-                    f"You are demonstrating a highly optimized deep work cycle (Consistency: {focus_consistency:.1f}%). "
-                    f"Posture remains excellent across {100.0-posture_drift_pct:.1f}% of samples. Maintain this dedicated "
-                    f"workspace setting to sustain these peak performance zones."
+                    f"Your recent sessions demonstrate robust concentration consistency (Efficiency: {cognitive_efficiency:.1f}%) "
+                    f"with relatively low cognitive strain, suggesting a highly sustainable productivity rhythm during deep work periods."
                 )
             else:
                 overall_summary = (
-                    f"Your cognitive performance shows standard parameters. Moderate fatigue accumulation (Fatigue score: {avg_fatigue:.1f}) "
-                    f"is detected in {weakest_time_window}. Short stretching transitions will help smooth out focus volatility."
+                    f"Your behavioral patterns show standard parameters with a stable baseline (Consistency: {focus_consistency:.1f}%). "
+                    f"Moderate fatigue accumulation was detected in your {weakest_time_window} blocks. Incorporating micro-breaks will help smooth out focus volatility."
                 )
 
             # 9. Generate AI Insight Cards
             insights_list = []
             recommendations_list = []
+
+            # Determine confidence tier string based on session count
+            if total_ended < 1:
+                conf_tier = "Emerging Pattern"
+            elif 1 <= total_ended <= 3:
+                conf_tier = "Emerging Pattern"
+            elif 4 <= total_ended <= 10:
+                conf_tier = "Moderate Confidence"
+            elif 11 <= total_ended <= 20:
+                conf_tier = "Strong Confidence"
+            else:
+                conf_tier = "Stable Baseline"
 
             # Insight 1: Focus peak
             insights_list.append(AIInsightCard(
@@ -298,11 +317,10 @@ class InsightsService:
                 summary=f"Your focus peaks consistently during {best_time_window}, averaging {average_focus * 1.05:.1f}. Focus is stable across samples.",
                 category="focus",
                 severity="positive" if average_focus >= 75.0 else "neutral",
-                confidence=round(0.82 + min(0.12, total_sessions / 50.0), 2),
+                confidence=conf_tier,
                 recommendation="Lock your calendar and direct mental effort toward complex research/coding during this interval.",
                 supporting_metrics={"avg_focus": round(average_focus, 1), "peak_hours": best_time_window}
             ))
-
             # Insight 2: Load and Volatility
             load_severity = "warning" if average_cognitive_load > 60.0 or load_volatility > 15.0 else "neutral"
             load_summary = (
@@ -315,7 +333,7 @@ class InsightsService:
                 summary=load_summary,
                 category="fatigue" if load_severity == "warning" else "productivity",
                 severity=load_severity,
-                confidence=0.85,
+                confidence=conf_tier,
                 recommendation="Consolidate browser tabs and silence messaging apps to diminish mental switching costs." if load_volatility > 15.0 else "Continue utilizing single-task focus methodologies.",
                 supporting_metrics={"avg_load": round(average_cognitive_load, 1), "load_std_dev": round(load_volatility, 1)}
             ))
@@ -332,7 +350,7 @@ class InsightsService:
                 summary=posture_summary,
                 category="behavior" if posture_drift_pct > 35.0 else "recovery",
                 severity=posture_severity,
-                confidence=0.90,
+                confidence=conf_tier,
                 recommendation="Raise screen height slightly and perform 2 neck rotations every hour." if posture_drift_pct > 35.0 else "Maintain current desk and seat adjustments.",
                 supporting_metrics={"slouched_percentage": round(posture_drift_pct, 1)}
             ))
@@ -345,30 +363,47 @@ class InsightsService:
                 f"Webcam tracking registered excellent focus retention. Gaze remained on screen during {100.0 - gaze_distraction_pct:.1f}% of samples."
             )
             insights_list.append(AIInsightCard(
-                title="Gaze Distraction Flag" if gaze_distraction_pct > 25.0 else "Visual Attention Locked",
+                title="Environmental Friction Detected" if gaze_distraction_pct > 25.0 else "Exceptional Screen Retention",
                 summary=gaze_summary,
-                category="anomaly" if gaze_distraction_pct > 25.0 else "focus",
+                category="behavior",
                 severity=gaze_severity,
-                confidence=0.88,
-                recommendation="Clear clutter from your immediate field of vision and shut down duplicate monitors." if gaze_distraction_pct > 25.0 else "Keep your desk setup optimized and tidy.",
-                supporting_metrics={"gaze_off_screen_pct": round(gaze_distraction_pct, 1)}
+                confidence=conf_tier,
+                recommendation="Clear physical desk distractions and ensure optimal lighting." if gaze_distraction_pct > 25.0 else "Your physical environment is effectively supporting sustained concentration.",
+                supporting_metrics={"gaze_retention": round(100.0 - gaze_distraction_pct, 1)}
             ))
 
             # Insight 5: Burnout & Recovery Balance
             burnout_severity = "critical" if burnout_risk > 70.0 else "warning" if burnout_risk > 45.0 else "positive"
             burnout_summary = (
-                f"Burnout indicators have accumulated (Risk: {burnout_risk:.1f}%) due to extended continuous focus blocks and slouched spine strain."
+                f"Burnout indicators have accumulated (Risk: {burnout_risk:.1f}%) due to continuous focus blocks and posture strain."
                 if burnout_risk > 45.0 else
-                f"Recovery indices are stable (Recovery score: {recovery_balance:.1f}/100), suggesting great sleep/break timing."
+                f"Recovery indices are remarkably stable (Score: {recovery_balance:.1f}/100), suggesting excellent workflow timing."
             )
             insights_list.append(AIInsightCard(
                 title="Elevated Burnout Markers" if burnout_risk > 45.0 else "Sustained Recovery Profile",
                 summary=burnout_summary,
                 category="recovery",
                 severity=burnout_severity,
-                confidence=0.87,
-                recommendation="Enforce a 50-minute task block limit followed strictly by 10 minutes of active screen disconnection." if burnout_risk > 45.0 else "Maintain current recovery and exercise structures.",
-                supporting_metrics={"burnout_risk_score": round(burnout_risk, 1), "avg_fatigue": round(avg_fatigue, 1)}
+                confidence=conf_tier,
+                recommendation="Enforce a 50-minute task block limit followed strictly by 10 minutes of active screen disconnection." if burnout_risk > 45.0 else "Maintain current recovery and exertion balance.",
+                supporting_metrics={"burnout_risk_score": round(burnout_risk, 1), "recovery_balance": round(recovery_balance, 1)}
+            ))
+
+            # Insight 6: Productivity Momentum
+            momentum_severity = "positive" if productivity_momentum > 60.0 else "neutral"
+            momentum_summary = (
+                f"Productivity momentum is currently strong (Score: {productivity_momentum:.1f}), indicating efficient task completion cycles."
+                if productivity_momentum > 60.0 else
+                f"Productivity momentum is building. Your recent consistency suggests you are on the verge of deeper flow states."
+            )
+            insights_list.append(AIInsightCard(
+                title="High Velocity Productivity" if productivity_momentum > 60.0 else "Productivity Momentum Lag",
+                summary=momentum_summary,
+                category="productivity",
+                severity=momentum_severity,
+                confidence=conf_tier,
+                recommendation="Capitalize on this flow state by tackling high-priority projects." if productivity_momentum > 60.0 else "Begin with smaller, easily completable tasks to rebuild momentum.",
+                supporting_metrics={"momentum_score": round(productivity_momentum, 1), "avg_fatigue": round(avg_fatigue, 1)}
             ))
 
             # 10. Generate Recommendations Array
@@ -384,10 +419,10 @@ class InsightsService:
             # 11. Generate Chart Timelines Data
             
             # A. Focus Drift Timeline (Limit to max 20 points from recent metrics or fallback)
+            # A. Focus Drift Timeline
             focus_drift_timeline = []
-            if len(all_metrics) > 10:
-                # Group by chunks to create timeline points
-                chunk_size = max(1, len(all_metrics) // 15)
+            if len(all_metrics) > 0:
+                chunk_size = max(1, len(all_metrics) // 20)
                 for i in range(0, len(all_metrics), chunk_size):
                     chunk = all_metrics[i:i+chunk_size]
                     if not chunk: continue
@@ -398,17 +433,20 @@ class InsightsService:
                         time_str = f"{i//chunk_size}:00"
                         
                     avg_foc = sum(m.get("focus_score", 0) for m in chunk) / len(chunk)
-                    distractions = len([m for m in chunk if m.get("attention_state") == "Distracted" or m.get("gaze_status") == "Off Screen"])
-                    distraction_vol = (distractions / len(chunk)) * 100.0
+                    avg_load = sum(m.get("cognitive_load", 0) for m in chunk) / len(chunk)
+                    avg_fatigue = sum(m.get("fatigue_score", 0) for m in chunk) / len(chunk)
                     
-                    focus_drift_timeline.append(FocusDriftPoint(time=time_str, focus=int(avg_foc), distraction=int(distraction_vol)))
-            else:
-                focus_drift_timeline = default_response.focus_drift_timeline
+                    focus_drift_timeline.append(FocusDriftPoint(
+                        time=time_str, 
+                        focus=int(avg_foc), 
+                        cognitive_load=int(avg_load),
+                        fatigue=int(avg_fatigue)
+                    ))
 
             # B. Weekly Trends (Last 7 days aggregation)
+            # B. Weekly Trends
             weekly_trends = []
-            if total_ended >= 3:
-                # Group by day name
+            if total_ended >= 1:
                 days_map = defaultdict(list)
                 for s in ended_sessions:
                     try:
@@ -418,22 +456,18 @@ class InsightsService:
                     except:
                         pass
                 
-                # Ensure we have 7 days populated
                 day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
                 for d in day_names:
                     day_sessions = days_map.get(d, [])
                     if day_sessions:
-                        avg_f = sum(s.get("focus_score", 0) for s in day_sessions) / len(day_sessions)
-                        avg_p = sum(s.get("productivity_score", 0) for s in day_sessions) / len(day_sessions)
+                        avg_f = sum((s.get("focus_score") or 0) for s in day_sessions) / len(day_sessions)
+                        avg_p = sum((s.get("productivity_score") or 0) for s in day_sessions) / len(day_sessions)
                         fatigue_map = {"Low": 15.0, "Medium": 50.0, "High": 85.0}
                         avg_fatigue_day = sum(fatigue_map.get(s.get("fatigue_level", "Low"), 15.0) for s in day_sessions) / len(day_sessions)
                         dur_day = sum(s.get("duration_minutes", 0) for s in day_sessions)
                         weekly_trends.append(WeeklyTrendPoint(day=d, focus=int(avg_f), fatigue=int(avg_fatigue_day), productivity=int(avg_p), duration=int(dur_day)))
-                    else:
-                        # Fallback heuristic for missing days to make the chart look nice
-                        weekly_trends.append(WeeklyTrendPoint(day=d, focus=60, fatigue=20, productivity=55, duration=30))
             else:
-                weekly_trends = default_response.weekly_trends
+                weekly_trends = []
 
             # C. Fatigue Correlation
             fatigue_correlation = []
@@ -452,30 +486,22 @@ class InsightsService:
                     avg_fatigue_m = sum(m.get("fatigue_score", 15) for m in chunk) / len(chunk)
                     fatigue_correlation.append(FatigueCorrelationPoint(time=time_str, blink_rate=int(avg_blink), fatigue=int(avg_fatigue_m)))
             else:
-                fatigue_correlation = default_response.fatigue_correlation
+                fatigue_correlation = []
 
-            # D. Productivity Patterns (Mocked safely if domain data missing)
+            # D. Productivity Patterns (Radar chart data)
             productivity_patterns = []
-            domains_mock = {"Deep Work": 90, "Research": 82, "Meetings": 45, "Planning": 75, "Coding": 88}
-            # Attempt to use real session types
             real_domains = defaultdict(list)
             for s in ended_sessions:
                 s_type = s.get("session_type")
                 if s_type:
-                    real_domains[s_type].append(s.get("productivity_score", 60))
+                    real_domains[s_type].append(s.get("productivity_score") or 0)
                     
             if real_domains:
                 for dom, scores in real_domains.items():
                     avg_sc = sum(scores) / len(scores)
-                    productivity_patterns.append(ProductivityPatternPoint(domain=dom, score=int(avg_sc)))
-                # Pad to at least 3 points for a good radar chart
-                if len(productivity_patterns) < 3:
-                    for d, sc in domains_mock.items():
-                        if d not in real_domains:
-                            productivity_patterns.append(ProductivityPatternPoint(domain=d, score=sc))
-                            if len(productivity_patterns) >= 4: break
+                    productivity_patterns.append(ProductivityPatternPoint(domain=dom, score=int(avg_sc), full_mark=100))
             else:
-                productivity_patterns = default_response.productivity_patterns
+                productivity_patterns = []
 
             # 12. Build Response Payload
             response_payload = AdvancedAIInsightsResponse(

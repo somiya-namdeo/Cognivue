@@ -84,7 +84,7 @@ const LiveTooltip = ({ active, payload }: LiveTooltipProps) => {
 
 export const LiveMonitoringPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState('Live Monitoring');
-  const [metricsLoopId, setMetricsLoopId] = useState<NodeJS.Timeout | null>(null);
+  const [metricsLoopId, setMetricsLoopId] = useState<number | null>(null);
   
   // Extension Telemetry State
   const [extensionActivity, setExtensionActivity] = useState<ExtensionActivityResponse | null>(null);
