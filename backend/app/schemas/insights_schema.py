@@ -2,6 +2,28 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
+class FocusDriftPoint(BaseModel):
+    time: str
+    focus: int
+    distraction: int
+
+class WeeklyTrendPoint(BaseModel):
+    day: str
+    focus: int
+    fatigue: int
+    productivity: int
+    duration: int
+
+class FatigueCorrelationPoint(BaseModel):
+    time: str
+    blink_rate: int
+    fatigue: int
+
+class ProductivityPatternPoint(BaseModel):
+    domain: str
+    score: int
+    full_mark: int = 100
+
 class InsightCreate(BaseModel):
     session_id: Optional[str] = None
     title: str = Field(..., description="Short heading for the insight")
@@ -47,3 +69,7 @@ class AdvancedAIInsightsResponse(BaseModel):
     patterns: BehaviorPatterns
     insights: List[AIInsightCard]
     recommendations: List[str]
+    focus_drift_timeline: List[FocusDriftPoint] = []
+    weekly_trends: List[WeeklyTrendPoint] = []
+    fatigue_correlation: List[FatigueCorrelationPoint] = []
+    productivity_patterns: List[ProductivityPatternPoint] = []

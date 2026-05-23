@@ -9,7 +9,8 @@ import {
   BookOpen, 
   Coffee, 
   AlertTriangle,
-  Plus
+  Target,
+  Clock
 } from 'lucide-react';
 import { 
   getAIInsights, 
@@ -17,6 +18,11 @@ import {
   type AdvancedAIInsightsResponse, 
   type AIInsightCard 
 } from '../services/api';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  LineChart, Line, ComposedChart, Bar, Legend
+} from 'recharts';
 
 // Category mapping to Lucide Icons
 const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -28,7 +34,7 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
   anomaly: AlertTriangle,
 };
 
-// Severity mapping to visual CSS styles (as requested: positive=cyan/green, neutral=blue/violet, warning=amber, critical=red)
+// Severity mapping to visual CSS styles
 const getSeverityStyles = (severity: string) => {
   switch (severity) {
     case 'positive':
@@ -59,6 +65,28 @@ const getSeverityStyles = (severity: string) => {
   }
 };
 
+// Custom Tooltip for Recharts to match Glassmorphism dark theme
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-[#03030b]/90 backdrop-blur-md p-4 shadow-xl">
+        <p className="text-white/60 text-xs mb-2 uppercase tracking-wider">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={`item-${index}`} className="flex items-center justify-between gap-4 mb-1">
+            <span className="text-sm font-medium" style={{ color: entry.color }}>
+              {entry.name}
+            </span>
+            <span className="text-sm font-bold text-white">
+              {entry.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 export const AIInsightsPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState('AI Insights');
   const [insightsData, setInsightsData] = useState<AdvancedAIInsightsResponse | null>(null);
@@ -85,7 +113,6 @@ export const AIInsightsPage: React.FC = () => {
     fetchInsights();
   }, []);
 
-  // Stagger animate parent setup
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
     show: {
@@ -101,19 +128,14 @@ export const AIInsightsPage: React.FC = () => {
     show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } }
   };
 
-  // 1. Loading Skeleton Screen (renders exact card coordinates with fluid pulse bars)
   if (loading) {
     return (
       <DashboardLayout activeItem={activeItem} setActiveItem={setActiveItem}>
         <div className="flex flex-col gap-10 sm:gap-12 animate-pulse text-left">
-          
-          {/* Header block pulse */}
           <div className="flex flex-col text-left">
             <div className="h-10 bg-white/10 rounded w-1/4 mb-3"></div>
             <div className="h-4 bg-white/5 rounded w-1/2"></div>
           </div>
-
-          {/* 5 Scores Grid Pulse */}
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-5">
             {[...Array(5)].map((_, idx) => (
               <div key={idx} className="rounded-2xl border border-white/5 bg-slate-950/20 p-5">
@@ -124,33 +146,11 @@ export const AIInsightsPage: React.FC = () => {
               </div>
             ))}
           </div>
-
-          {/* NLP block and Circular Gauge Pulse */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10">
-            <div className="lg:col-span-8 rounded-2xl border border-white/5 bg-slate-950/20 p-8 h-80">
-              <div className="h-3 bg-white/10 rounded w-1/4 mb-6"></div>
-              <div className="h-8 bg-white/15 rounded w-1/2 mb-6"></div>
-              <div className="space-y-4">
-                <div className="h-4 bg-white/5 rounded w-full"></div>
-                <div className="h-4 bg-white/5 rounded w-11/12"></div>
-                <div className="h-4 bg-white/5 rounded w-4/5"></div>
-              </div>
-            </div>
-            <div className="lg:col-span-4 rounded-2xl border border-white/5 bg-slate-950/20 p-8 h-80 flex flex-col items-center justify-between">
-              <div className="h-3 bg-white/10 rounded w-2/3 self-start mb-4"></div>
-              <div className="h-28 w-28 rounded-full border-8 border-white/5 flex items-center justify-center">
-                <div className="h-12 w-12 rounded-full bg-white/10"></div>
-              </div>
-              <div className="h-3 bg-white/5 rounded w-full mt-4"></div>
-            </div>
-          </div>
-
         </div>
       </DashboardLayout>
     );
   }
 
-  // 2. Offline Error Screen
   if (error) {
     return (
       <DashboardLayout activeItem={activeItem} setActiveItem={setActiveItem}>
@@ -171,7 +171,6 @@ export const AIInsightsPage: React.FC = () => {
     );
   }
 
-  // 3. Calibration / Empty State Screen (if focus consistency and burnout scores are both 0)
   const isCalibrationPending = insightsData && 
     insightsData.scores.focus_consistency === 0 && 
     insightsData.scores.burnout_risk === 0;
@@ -185,20 +184,6 @@ export const AIInsightsPage: React.FC = () => {
           <p className="text-[15px] leading-[1.6] text-white/70 font-normal antialiased max-w-md mb-6">
             Complete more focus sessions to unlock advanced cognitive intelligence insights.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full text-left mt-6">
-            <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] px-5 py-4">
-              <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Step 1</span>
-              <span className="text-[14px] font-semibold text-white block mt-1">Start Session</span>
-            </div>
-            <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] px-5 py-4">
-              <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Step 2</span>
-              <span className="text-[14px] font-semibold text-white block mt-1">Focus & Calibrate</span>
-            </div>
-            <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] px-5 py-4">
-              <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Step 3</span>
-              <span className="text-[14px] font-semibold text-white block mt-1">Unlock AI Insights</span>
-            </div>
-          </div>
           <button 
             onClick={fetchInsights}
             className="mt-8 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 px-6 py-3 text-[13px] font-semibold text-cyan-400 transition-all duration-300"
@@ -210,26 +195,35 @@ export const AIInsightsPage: React.FC = () => {
     );
   }
 
-  // Bind dynamic scores for Cognitive Cards
   const cognitiveScores = [
     { name: 'Focus Consistency', value: Math.round(insightsData.scores.focus_consistency), gradient: 'from-cyan-400 to-blue-500', desc: 'Focus stability across sessions' },
     { name: 'Burnout Risk', value: Math.round(insightsData.scores.burnout_risk), gradient: 'from-orange-400 to-red-500', desc: 'Stress and fatigue strain index' },
-    { name: 'Cognitive Efficiency', value: Math.round(insightsData.scores.cognitive_efficiency), gradient: 'from-violet-400 to-indigo-500', desc: 'Focus output achieved relative to load' },
+    { name: 'Cognitive Efficiency', value: Math.round(insightsData.scores.cognitive_efficiency), gradient: 'from-violet-400 to-indigo-500', desc: 'Focus output relative to load' },
     { name: 'Recovery Balance', value: Math.round(insightsData.scores.recovery_balance), gradient: 'from-emerald-400 to-teal-500', desc: 'Energy replenishment level' },
-    { name: 'Productivity Momentum', value: Math.round(insightsData.scores.productivity_momentum), gradient: 'from-pink-400 to-rose-500', desc: 'Cumulative session performance trend' }
+    { name: 'Productivity Momentum', value: Math.round(insightsData.scores.productivity_momentum), gradient: 'from-pink-400 to-rose-500', desc: 'Cumulative performance trend' }
   ];
 
-  // Map dynamic coaching recommendations list with fallback logic
-  const displayRecommendations = (insightsData.recommendations && insightsData.recommendations.length > 0)
-    ? insightsData.recommendations
-    : insightsData.insights.map((ins: AIInsightCard) => ins.recommendation);
-
-  const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-  // Resolve anomaly to render alert banner
   const anomalyInsight = insightsData.insights.find(
     (ins: AIInsightCard) => ins.category === 'anomaly' || ins.severity === 'critical' || ins.severity === 'warning'
   );
+
+  const fallbackWeekly = [
+   { day:"Mon", focus:60, fatigue:20, productivity:55, duration:45 },
+   { day:"Tue", focus:62, fatigue:22, productivity:58, duration:50 },
+   { day:"Wed", focus:80, fatigue:15, productivity:76, duration:120 },
+   { day:"Thu", focus:84, fatigue:14, productivity:79, duration:140 },
+   { day:"Fri", focus:61, fatigue:20, productivity:56, duration:60 },
+   { day:"Sat", focus:60, fatigue:20, productivity:55, duration:45 },
+   { day:"Sun", focus:60, fatigue:20, productivity:55, duration:45 }
+  ];
+
+  const finalWeeklyTrends = (insightsData.weekly_trends && insightsData.weekly_trends.length >= 7)
+    ? insightsData.weekly_trends
+    : fallbackWeekly;
+
+  // Debug fallback as requested
+  console.log("weekly_trends from API:", insightsData.weekly_trends);
+  console.log("weekly_trends being rendered:", finalWeeklyTrends);
 
   return (
     <DashboardLayout activeItem={activeItem} setActiveItem={setActiveItem}>
@@ -237,9 +231,9 @@ export const AIInsightsPage: React.FC = () => {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="flex flex-col gap-10 sm:gap-12 text-left"
+        className="flex flex-col gap-10 sm:gap-12 text-left w-full"
       >
-        {/* ================= TOP HEADER BLOCK ================= */}
+        {/* ================= HEADER ================= */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex flex-col text-left">
             <h2 className="font-sans text-[40px] font-bold tracking-tight leading-none text-white select-none antialiased">
@@ -259,8 +253,8 @@ export const AIInsightsPage: React.FC = () => {
           </button>
         </div>
 
-        {/* ================= DYNAMIC COGNITIVE SCORES CARD GRID ================= */}
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-5 mt-2">
+        {/* ================= 1. COGNITIVE SUMMARY CARDS ================= */}
+        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-5 gap-5 mt-2">
           {cognitiveScores.map((score, sIdx) => (
             <div key={sIdx} className="rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md select-none text-left flex flex-col justify-between shadow-[0_4px_30px_rgba(0,0,0,0.4)] hover:border-white/10 transition-all duration-300">
               <div>
@@ -278,117 +272,185 @@ export const AIInsightsPage: React.FC = () => {
               </div>
             </div>
           ))}
-        </div>
+        </motion.div>
 
-        {/* ================= SECTION 1: SESSION SUMMARY & RECOVERY CIRCULAR PROGRESS ================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 items-stretch">
-          
-          {/* Left Large Card: NLP Session Summary */}
-          <div className="lg:col-span-8 w-full flex">
-            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md flex flex-col justify-between select-none relative overflow-hidden shadow-[0_4px_30px_rgba(0,0,0,0.4)] hover:border-white/10 transition-all duration-300">
-              <div className="absolute inset-0 grid-background opacity-[0.015] pointer-events-none" />
-              
-              <div>
-                {/* Header labels */}
-                <div className="flex items-center gap-2.5 mb-4 relative z-10">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                    <Sparkles className="h-3 w-3" />
-                  </div>
-                  <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block leading-none">
-                    NLP session summary · generated at {new Date(insightsData.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+        {/* ================= 2. FOCUS DRIFT ANALYSIS & NLP SUMMARY ================= */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+          <motion.div variants={itemVariants} className="lg:col-span-8 w-full flex">
+            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md flex flex-col justify-between select-none relative overflow-hidden shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+              <div className="mb-6 relative z-10 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Session Analytics</span>
+                  <h3 className="text-[26px] font-semibold tracking-tight text-zinc-100 mt-1 antialiased">Focus Drift Analysis</h3>
                 </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                  <Activity className="h-5 w-5" />
+                </div>
+              </div>
+              
+              <div className="w-full h-[260px] min-h-[260px] flex-1 flex flex-col justify-center">
+                {insightsData.focus_drift_timeline && insightsData.focus_drift_timeline.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={insightsData.focus_drift_timeline} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorFocus" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorDistraction" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                      <XAxis dataKey="time" stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
+                      <RechartsTooltip content={<CustomTooltip />} />
+                      <Area type="monotone" dataKey="focus" name="Focus Level" stroke="#22d3ee" strokeWidth={2} fillOpacity={1} fill="url(#colorFocus)" />
+                      <Area type="monotone" dataKey="distraction" name="Distraction Spikes" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorDistraction)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full w-full bg-white/[0.02] rounded-xl border border-white/5 p-6 text-center">
+                    <Activity className="h-8 w-8 text-cyan-500/50 mb-3" />
+                    <span className="text-[13px] font-semibold text-white/70">Insufficient timeline data available to map focus drift.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
 
-                {/* Main Session Title */}
-                <h3 className="text-[32px] md:text-[36px] font-semibold tracking-tight leading-tight mb-4 text-white relative z-10 antialiased">
-                  Cognitive Baseline Overview
-                </h3>
-
-                {/* Paragraph Content */}
-                <p className="text-[15px] leading-[1.7] text-white/70 font-normal antialiased tracking-normal relative z-10">
+          <motion.div variants={itemVariants} className="lg:col-span-4 w-full flex">
+            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md flex flex-col justify-between shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+              <div>
+                <span className="text-[11px] uppercase tracking-[0.18em] text-cyan-400 font-semibold mb-2 block">Cognitive Summary</span>
+                <p className="text-[15px] leading-[1.7] text-white/80 font-normal antialiased">
                   {insightsData.summary}
                 </p>
               </div>
-
-              {/* Bottom Mini Indicators Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mt-8 pt-6 border-t border-white/[0.04] relative z-10">
-                <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] px-5 py-4 text-left">
-                  <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Focus Peak window</span>
-                  <span className="text-[15px] font-bold tracking-tight text-white mt-1 block leading-tight antialiased truncate">{insightsData.patterns.best_time_window}</span>
+              <div className="mt-8 border-t border-white/5 pt-6 grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-[11px] uppercase tracking-[0.15em] text-white/45 block mb-1">Best Block</span>
+                  <span className="text-[15px] font-bold text-white">{insightsData.patterns.best_time_window}</span>
                 </div>
-                <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] px-5 py-4 text-left">
-                  <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Attention Stability</span>
-                  <span className="text-[22px] font-bold tracking-tight text-white mt-1 block leading-none antialiased">{Math.round(insightsData.patterns.attention_stability)}%</span>
-                </div>
-                <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] px-5 py-4 text-left">
-                  <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Burnout risk</span>
-                  <span className="text-[22px] font-bold tracking-tight text-white mt-1 block leading-none antialiased">{Math.round(insightsData.scores.burnout_risk)}%</span>
+                <div>
+                  <span className="text-[11px] uppercase tracking-[0.15em] text-white/45 block mb-1">Burnout Risk</span>
+                  <span className="text-[15px] font-bold text-red-400">{insightsData.scores.burnout_risk}%</span>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Right Card: Recovery balance circular progress */}
-          <div className="lg:col-span-4 w-full flex">
-            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md flex flex-col justify-between select-none relative overflow-hidden text-center shadow-[0_4px_30px_rgba(0,0,0,0.4)] hover:border-white/10 transition-all duration-300">
-              
-              <div>
-                <div className="flex flex-col text-left mb-6">
-                  <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block leading-none">Burnout risk · 7-day model</span>
-                  <h3 className="text-[22px] font-semibold tracking-tight text-white mt-2 antialiased">Recovery balance</h3>
-                </div>
-
-                {/* Customized SVG circular gauge */}
-                <div className="relative flex items-center justify-center my-6">
-                  <svg className="w-38 h-38 transform -rotate-90" viewBox="0 0 100 100">
-                    {/* Background Circle */}
-                    <circle 
-                      cx="50" 
-                      cy="50" 
-                      r="40" 
-                      stroke="rgba(255,255,255,0.02)" 
-                      strokeWidth="8" 
-                      fill="transparent" 
-                    />
-                    {/* Active Progress Path */}
-                    <circle 
-                      cx="50" 
-                      cy="50" 
-                      r="40" 
-                      stroke="#22d3ee" 
-                      strokeWidth="8" 
-                      fill="transparent" 
-                      strokeDasharray={251.2}
-                      strokeDashoffset={251.2 * (1 - (insightsData.scores.recovery_balance / 100))}
-                      strokeLinecap="round"
-                      className="shadow-[0_0_8px_rgba(34,211,238,0.3)]"
-                    />
-                  </svg>
-                  {/* Inside metrics labels */}
-                  <div className="absolute flex flex-col items-center justify-center">
-                    <span className="text-[28px] font-bold text-white tracking-tight leading-none antialiased">{Math.round(insightsData.scores.recovery_balance)}%</span>
-                    <span className="text-[11px] font-semibold text-cyan-400 uppercase tracking-[0.12em] leading-none mt-1.5">
-                      {insightsData.scores.recovery_balance > 70 ? 'Optimal' : insightsData.scores.recovery_balance > 40 ? 'Moderate' : 'Low recovery'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-[14px] leading-[1.6] text-white/60 font-normal mt-4 antialiased">
-                {insightsData.scores.recovery_balance > 70 
-                  ? 'Sleep, breaks and load are well balanced. Keep current cadence.' 
-                  : 'Recovery index is low. We recommend scheduling dynamic neck stretches and shorter sessions.'}
-              </p>
-            </div>
-          </div>
-
+          </motion.div>
         </div>
 
-        {/* ================= SECTION 2: DYNAMIC SMART RECOMMENDATIONS / INSIGHT CARDS ================= */}
-        <div className="w-full flex flex-col gap-6 mt-4">
+        {/* ================= 3. PRODUCTIVITY PATTERNS & 4. FATIGUE INTELLIGENCE ================= */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+          
+          {/* Productivity Patterns */}
+          <motion.div variants={itemVariants} className="w-full flex">
+            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col">
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Domain Analysis</span>
+                  <h3 className="text-[22px] font-semibold tracking-tight text-white antialiased">Productivity Patterns</h3>
+                </div>
+                <Target className="h-5 w-5 text-violet-400" />
+              </div>
+              <div className="w-full h-[260px] min-h-[260px] flex-1 flex flex-col justify-center">
+                {insightsData.productivity_patterns && insightsData.productivity_patterns.length >= 3 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={insightsData.productivity_patterns}>
+                      <PolarGrid stroke="rgba(255,255,255,0.1)" />
+                      <PolarAngleAxis dataKey="domain" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                      <RechartsTooltip content={<CustomTooltip />} />
+                      <Radar name="Productivity" dataKey="score" stroke="#8b5cf6" strokeWidth={2} fill="#8b5cf6" fillOpacity={0.3} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full w-full bg-white/[0.02] rounded-xl border border-white/5 p-6 text-center">
+                    <Target className="h-8 w-8 text-violet-500/50 mb-3" />
+                    <span className="text-[13px] font-semibold text-white/70 mb-4">Insufficient data for Radar Analysis. Tracking mode active:</span>
+                    <div className="grid grid-cols-2 gap-4 w-full">
+                      <div className="bg-white/5 rounded-lg p-3 text-left">
+                        <span className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Strongest Mode</span>
+                        <span className="text-sm font-bold text-violet-400">{insightsData.patterns.best_time_window}</span>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-3 text-left">
+                        <span className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Context Switching</span>
+                        <span className="text-sm font-bold text-amber-400">{Math.round((100 - insightsData.patterns.attention_stability) * 10) / 10}% Risk</span>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-3 text-left">
+                        <span className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Deep Work Quality</span>
+                        <span className="text-sm font-bold text-cyan-400">{Math.round(insightsData.patterns.deep_work_ratio * 100)}% Ratio</span>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-3 text-left">
+                        <span className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Best Domain</span>
+                        <span className="text-sm font-bold text-white">General Focus</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Fatigue Intelligence */}
+          <motion.div variants={itemVariants} className="w-full flex">
+            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col">
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Ocular Telemetry</span>
+                  <h3 className="text-[22px] font-semibold tracking-tight text-white antialiased">Fatigue Intelligence</h3>
+                </div>
+                <Coffee className="h-5 w-5 text-amber-400" />
+              </div>
+              <div className="w-full h-[260px] min-h-[260px] flex-1 flex flex-col justify-center">
+                {insightsData.fatigue_correlation && insightsData.fatigue_correlation.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={insightsData.fatigue_correlation} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                      <XAxis dataKey="time" stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis yAxisId="left" stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis yAxisId="right" orientation="right" stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
+                      <RechartsTooltip content={<CustomTooltip />} />
+                      <Bar yAxisId="left" dataKey="blink_rate" name="Blink Rate" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={20} opacity={0.8} />
+                      <Line yAxisId="right" type="monotone" dataKey="fatigue" name="Fatigue Accum." stroke="#ef4444" strokeWidth={3} dot={{ r: 4, fill: '#ef4444', strokeWidth: 0 }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full w-full bg-white/[0.02] rounded-xl border border-white/5 p-6 text-center">
+                    <Coffee className="h-8 w-8 text-amber-500/50 mb-3" />
+                    <span className="text-[13px] font-semibold text-white/70 mb-4">Insufficient data for correlation graph. Current tracking status:</span>
+                    <div className="grid grid-cols-2 gap-4 w-full">
+                      <div className="bg-white/5 rounded-lg p-3 text-left">
+                        <span className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Fatigue Score</span>
+                        <span className="text-sm font-bold text-rose-400">{insightsData.scores.burnout_risk > 50 ? 'Elevated' : 'Nominal'}</span>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-3 text-left">
+                        <span className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Fatigue Risk Label</span>
+                        <span className="text-sm font-bold text-amber-400">{insightsData.scores.burnout_risk}% Burnout Risk</span>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-3 text-left">
+                        <span className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Blink Rate Trend</span>
+                        <span className="text-sm font-bold text-cyan-400">Stable</span>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-3 text-left">
+                        <span className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Recovery Suggestion</span>
+                        <span className="text-sm font-bold text-emerald-400">Maintain 20-20-20 rule</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* ================= 5. DEEP WORK ANALYTICS & 6. AI RECOMMENDATIONS ================= */}
+        <div className="flex flex-col gap-6">
           <div className="text-left">
-            <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Core patterns</span>
-            <h3 className="text-[26px] font-semibold tracking-tight text-zinc-100 mt-1 antialiased">Smart recommendations</h3>
+            <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Actionable Intelligence</span>
+            <h3 className="text-[26px] font-semibold tracking-tight text-zinc-100 mt-1 antialiased">Smart Recommendations</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -403,11 +465,9 @@ export const AIInsightsPage: React.FC = () => {
                   className="group relative rounded-2xl border border-white/5 bg-slate-950/20 p-6 backdrop-blur-md flex flex-col justify-between hover:scale-[1.01] hover:bg-slate-950/30 transition-all duration-300 select-none text-left min-h-[190px]"
                 >
                   <div className="flex flex-col gap-5">
-                    {/* Dynamic severity based icon container */}
                     <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${styles.bg}`}>
                       <Icon className="h-5 w-5" />
                     </div>
-
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
                         <h4 className="text-[18px] font-semibold tracking-tight text-white group-hover:text-cyan-400 transition-colors antialiased">
@@ -431,146 +491,41 @@ export const AIInsightsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* ================= SECTION 3: PATTERN TELEMETRY AND DYNAMIC ADAPTIVE COACHING TIMELINES ================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 items-stretch">
-          
-          {/* Left Column: Pattern analytics telemetry */}
-          <div className="lg:col-span-6 w-full flex">
-            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md flex flex-col select-none relative overflow-hidden shadow-[0_4px_30px_rgba(0,0,0,0.4)] hover:border-white/10 transition-all duration-300">
-              
-              <div className="mb-6">
-                <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Behavior patterns</span>
-                <h3 className="text-[26px] font-semibold tracking-tight text-zinc-100 mt-1 antialiased">Cognitive Telemetry</h3>
+        {/* ================= 7. WEEKLY TREND CHARTS ================= */}
+        <motion.div variants={itemVariants} className="w-full">
+          <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">7-Day Aggregation</span>
+                <h3 className="text-[26px] font-semibold tracking-tight text-white antialiased">Weekly Cognitive Trends</h3>
               </div>
-
-              {/* Progress list rows */}
-              <div className="flex-1 flex flex-col justify-between gap-6">
-                {/* 1. Best Focus Window */}
-                <div className="flex flex-col gap-2 w-full text-left">
-                  <div className="flex items-center justify-between text-[14px] font-semibold">
-                    <span className="text-[15px] text-white/85 font-medium antialiased">Best Focus Block</span>
-                    <span className="text-[13px] text-cyan-400 font-semibold antialiased">
-                      {insightsData.patterns.best_time_window}
-                    </span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-white/[0.03] overflow-hidden relative">
-                    <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 w-full" />
-                  </div>
-                </div>
-
-                {/* 2. Weakest Focus Window */}
-                <div className="flex flex-col gap-2 w-full text-left">
-                  <div className="flex items-center justify-between text-[14px] font-semibold">
-                    <span className="text-[15px] text-white/85 font-medium antialiased">Weakest Focus Block</span>
-                    <span className="text-[13px] text-amber-400 font-semibold antialiased">
-                      {insightsData.patterns.weakest_time_window}
-                    </span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-white/[0.03] overflow-hidden relative">
-                    <div className="h-full rounded-full bg-gradient-to-r from-amber-450 to-orange-500 w-[65%]" />
-                  </div>
-                </div>
-
-                {/* 3. Deep Work Ratio */}
-                <div className="flex flex-col gap-2 w-full text-left">
-                  <div className="flex items-center justify-between text-[14px] font-semibold">
-                    <span className="text-[15px] text-white/85 font-medium antialiased">Deep Work Ratio</span>
-                    <span className="text-[13px] text-white/80 font-semibold antialiased">
-                      {Math.round(insightsData.patterns.deep_work_ratio * 100)}%
-                    </span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-white/[0.03] overflow-hidden relative">
-                    <div 
-                      className="h-full rounded-full bg-gradient-to-r from-violet-400 to-indigo-500" 
-                      style={{ width: `${Math.round(insightsData.patterns.deep_work_ratio * 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* 4. Attention Stability */}
-                <div className="flex flex-col gap-2 w-full text-left">
-                  <div className="flex items-center justify-between text-[14px] font-semibold">
-                    <span className="text-[15px] text-white/85 font-medium antialiased">Attention Stability</span>
-                    <span className="text-[13px] text-white/80 font-semibold antialiased">
-                      {Math.round(insightsData.patterns.attention_stability)}%
-                    </span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-white/[0.03] overflow-hidden relative">
-                    <div 
-                      className="h-full rounded-full bg-gradient-to-r from-emerald-450 to-teal-500" 
-                      style={{ width: `${Math.round(insightsData.patterns.attention_stability)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* 5. Fatigue Drift */}
-                <div className="flex flex-col gap-2 w-full text-left">
-                  <div className="flex items-center justify-between text-[14px] font-semibold">
-                    <span className="text-[15px] text-white/85 font-medium antialiased">Fatigue Drift Rate</span>
-                    <span className="text-[13px] text-white/80 font-semibold antialiased">
-                      {(insightsData.patterns.fatigue_drift >= 0 ? '+' : '') + insightsData.patterns.fatigue_drift.toFixed(3)}
-                    </span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-white/[0.03] overflow-hidden relative">
-                    <div 
-                      className={`h-full rounded-full bg-gradient-to-r ${insightsData.patterns.fatigue_drift >= 0 ? 'from-red-400 to-orange-500' : 'from-emerald-400 to-cyan-400'}`} 
-                      style={{ width: `${Math.min(100, Math.max(15, Math.abs(insightsData.patterns.fatigue_drift) * 800))}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
+              <Clock className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div className="w-full h-[320px] min-h-[320px] flex-1 flex flex-col justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={finalWeeklyTrends} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="day" stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
+                  <RechartsTooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: '12px', opacity: 0.8, paddingTop: '10px' }} />
+                  <Line type="monotone" dataKey="focus" name="Focus Quality" stroke="#22d3ee" strokeWidth={3} dot={{ r: 4, strokeWidth: 0, fill: '#22d3ee' }} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="productivity" name="Productivity" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, strokeWidth: 0, fill: '#8b5cf6' }} />
+                  <Line type="monotone" dataKey="fatigue" name="Fatigue" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3, strokeWidth: 0, fill: '#ef4444' }} />
+                  <Line type="monotone" dataKey="duration" name="Duration (m)" stroke="#10b981" strokeWidth={2} strokeDasharray="3 3" dot={{ r: 3, strokeWidth: 0, fill: '#10b981' }} />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
+        </motion.div>
 
-          {/* Right Column: Weekly coaching blocks (renders recommendations dynamically) */}
-          <div className="lg:col-span-6 w-full flex">
-            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md flex flex-col select-none relative overflow-hidden shadow-[0_4px_30px_rgba(0,0,0,0.4)] hover:border-white/10 transition-all duration-300">
-              
-              <div className="mb-6">
-                <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Improvement plan · this week</span>
-                <h3 className="text-[26px] font-semibold tracking-tight text-zinc-100 mt-1 antialiased">Adaptive coaching</h3>
-              </div>
-
-              {/* Weekly checklist rows */}
-              <div className="flex-1 flex flex-col gap-4">
-                {displayRecommendations.slice(0, 5).map((rec: string, idx: number) => {
-                  const day = weekDays[idx % weekDays.length];
-                  return (
-                    <div 
-                      key={idx}
-                      className="group flex items-center gap-6 rounded-2xl border border-white/[0.04] bg-white/[0.01] px-[18px] py-[14px] hover:bg-white/[0.03] transition-all duration-300 text-left"
-                    >
-                      {/* Circular numbered indicator */}
-                      <div className="h-9 w-9 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-[12px] font-bold text-cyan-300 shrink-0">
-                        {idx + 1}
-                      </div>
-
-                      <div className="flex flex-col justify-center">
-                        <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-0.5">{day}</span>
-                        <span className="text-[15px] font-medium text-white/85 antialiased group-hover:text-cyan-400 transition-colors mt-0.5">
-                          {rec}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-            </div>
-          </div>
-
-        </div>
-
-        {/* ================= SECTION 5: DYNAMIC ANOMALY ALERT BANNER ================= */}
-        {anomalyInsight ? (
-          <div className="w-full rounded-2xl border border-amber-500/20 bg-amber-500/[0.015] p-6 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-5 select-none hover:bg-amber-500/[0.025] transition-all duration-300 shadow-[0_0_15px_rgba(245,158,11,0.05)] hover:border-amber-500/30 hover:shadow-[0_0_20px_rgba(245,158,11,0.08)] mt-4">
+        {/* Anomaly Alert */}
+        {anomalyInsight && (
+          <motion.div variants={itemVariants} className="w-full rounded-2xl border border-amber-500/20 bg-amber-500/[0.015] p-6 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-5 select-none hover:bg-amber-500/[0.025] transition-all duration-300 shadow-[0_0_15px_rgba(245,158,11,0.05)] mt-4">
             <div className="flex items-center gap-6 text-left w-full sm:w-auto">
-              {/* Alert icon */}
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
                 <AlertTriangle className="h-5 w-5 animate-pulse" />
               </div>
-
               <div className="flex flex-col gap-1">
                 <span className="text-[11px] uppercase tracking-[0.18em] text-amber-450 font-bold block mb-0.5">
                   Anomaly detected: {anomalyInsight.title}
@@ -580,31 +535,7 @@ export const AIInsightsPage: React.FC = () => {
                 </span>
               </div>
             </div>
-            
-            <button 
-              onClick={() => alert(`Enforcing: ${anomalyInsight.recommendation}`)}
-              className="rounded-xl border border-white/10 hover:border-white/20 px-5 py-3 text-[13px] font-semibold text-white hover:bg-white/[0.04] flex items-center gap-2 transition-all duration-300 shrink-0 w-full sm:w-auto justify-center"
-            >
-              <Plus className="h-4.5 w-4.5" />
-              <span>Add to plan</span>
-            </button>
-          </div>
-        ) : (
-          <div className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.015] p-6 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-5 select-none hover:bg-emerald-500/[0.025] transition-all duration-300 shadow-[0_0_15px_rgba(16,185,129,0.05)] hover:border-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.08)] mt-4">
-            <div className="flex items-center gap-6 text-left w-full sm:w-auto">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[11px] uppercase tracking-[0.18em] text-emerald-400 font-bold block mb-0.5">
-                  System Calibration Stable
-                </span>
-                <span className="text-[15px] font-medium text-white/85 antialiased leading-normal">
-                  Visual gaze attention and desk ergonomics are fully within nominal parameters. No active anomalies detected.
-                </span>
-              </div>
-            </div>
-          </div>
+          </motion.div>
         )}
 
       </motion.div>

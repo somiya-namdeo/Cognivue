@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { BrowserCVMonitor } from '../components/BrowserCVMonitor';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -16,7 +17,6 @@ import {
   Sparkles, 
   Zap, 
   Globe, 
-  Camera, 
   Play, 
   Square,
   AlertTriangle,
@@ -27,7 +27,6 @@ import {
   startSession,
   endSession,
   getActiveSession,
-  getLatestMetric,
   getSessionMetrics
 } from '../services/api';
 import type { MetricResponse } from '../services/api';
@@ -91,23 +90,14 @@ export const LiveMonitoringPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [latestMetric, setLatestMetric] = useState<MetricResponse | null>(null);
-  const [focusStream, setFocusStream] = useState<{ time: string; focus: number; cognitiveLoad?: number }[]>([]);
+  const [focusStream, setFocusStream] = useState<{ time: string; focus: number; load: number; fatigue: number }[]>([]);
   const [hasBackendOfflineWarning, setHasBackendOfflineWarning] = useState<boolean>(false);
 const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offline'>('Waiting');
 
   // Responsive window tracking for particle density control (Dynamic Particle Count)
-  const [windowWidth, setWindowWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1200);
-
-  useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // Stats histories for Session End Summary Modal
-  const [focusHistory, setFocusHistory] = useState<number[]>([]);
-  const [loadHistory, setLoadHistory] = useState<number[]>([]);
-  const [fatigueHistory, setFatigueHistory] = useState<number[]>([]);
+  const [sessionMetrics, setSessionMetrics] = useState<any[]>([]);
   
   // Session Summary Modal State
   const [showSummaryModal, setShowSummaryModal] = useState<boolean>(false);
@@ -116,11 +106,13 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
     avgFocus: number;
     peakFocus: number;
     avgLoad: number;
-    productivityScore: number;
+    productivityScore: number | string;
     fatigueTrend: string;
     aiSentence: string;
     totalSamples: number;
     consistency: number;
+    isPoorTracking: boolean;
+    telemetryQuality: string;
   } | null>(null);
 
   // Keep a ref of latestMetric to avoid stale closures in the telemetry interval
@@ -173,28 +165,27 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
               setLatestMetric(metrics[metrics.length - 1]);
               
               // Populate stats history
-              const fScores = metrics.map(m => m.focus_score);
-              const lScores = metrics.map(m => m.cognitive_load);
-              const fatScores = metrics.map(m => m.fatigue_score);
-              setFocusHistory(fScores);
-              setLoadHistory(lScores);
-              setFatigueHistory(fatScores);
+              setSessionMetrics(metrics);
 
               const historyData = metrics.map((m) => {
-                const ageMinutes = Math.round((Date.now() - new Date(m.recorded_at).getTime()) / 60000);
+                const d = new Date(m.recorded_at);
+                const timeStr = [d.getHours(), d.getMinutes(), d.getSeconds()].map(v => String(v).padStart(2, '0')).join(':');
                 return {
-                  time: ageMinutes <= 0 ? 'Just now' : `${ageMinutes}m ago`,
+                  time: timeStr,
                   focus: m.focus_score,
-                  cognitiveLoad: m.cognitive_load
+                  load: m.cognitive_load,
+                  fatigue: m.fatigue_score
                 };
               });
-              setFocusStream(historyData.slice(-30));
+              setFocusStream(historyData);
             } else {
-              setFocusStream([{ time: 'Just now', focus: 85, cognitiveLoad: 50 }]);
+              setFocusStream([]);
+              setStreamStatus('Waiting');
             }
           } catch (err) {
             console.error('Failed to restore session metrics:', err);
-            setFocusStream([{ time: 'Just now', focus: 85, cognitiveLoad: 50 }]);
+            setFocusStream([]);
+            setStreamStatus('Waiting');
           }
         }
       } catch (err: any) {
@@ -242,45 +233,53 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
 
     const fetchAndUpdateMetric = async () => {
       try {
-        const metric = await getLatestMetric(activeSessionId);
-        // Successful fetch → update UI
-        setLatestMetric(metric);
-        setFocusHistory(prev => [...prev, metric.focus_score]);
-        setLoadHistory(prev => [...prev, metric.cognitive_load]);
-        setFatigueHistory(prev => [...prev, metric.fatigue_score]);
-        setStreamStatus('Connected');
-        setErrorMessage(null);
-        setHasBackendOfflineWarning(false);
+        const metrics = await getSessionMetrics(activeSessionId);
+        if (metrics && metrics.length > 0) {
+          const metric = metrics[metrics.length - 1]; // latest metric
+          // Successful fetch → update UI
+          setLatestMetric(metric);
+          setSessionMetrics(metrics);
+          setStreamStatus('Connected');
+          setErrorMessage(null);
+          setHasBackendOfflineWarning(false);
 
-        // Update chart stream
-        setFocusStream(prev => {
-          const nextData = [...prev, { time: 'Just now', focus: metric.focus_score, cognitiveLoad: metric.cognitive_load }];
-          if (nextData.length > 30) nextData.shift();
-          return nextData.map((d, idx) => {
-            if (idx === nextData.length - 1) return d;
-            return { ...d, time: `${nextData.length - 1 - idx}m ago` };
+          // Update chart stream
+          const historyData = metrics.map((m) => {
+            const d = new Date(m.recorded_at);
+            const timeStr = [d.getHours(), d.getMinutes(), d.getSeconds()].map(v => String(v).padStart(2, '0')).join(':');
+            return {
+              time: timeStr,
+              focus: m.focus_score,
+              load: m.cognitive_load,
+              fatigue: m.fatigue_score
+            };
           });
-        });
+          setFocusStream(historyData);
+        } else {
+          setStreamStatus('Waiting');
+          setErrorMessage(null); // Clear error if just waiting for data
+        }
       } catch (err: any) {
         console.error('Failed to fetch latest metric:', err);
         // If 404, treat as waiting; otherwise offline
         const isNotFound = err?.message?.includes('404') || err?.message?.toLowerCase()?.includes('not found');
         if (!latestMetricRef.current || isNotFound) {
           setStreamStatus('Waiting');
+          setErrorMessage(null); // Clear error if just waiting for data
         } else {
           setStreamStatus('Offline');
-        }
-        if (!hasBackendOfflineWarning) {
-          setHasBackendOfflineWarning(true);
-          setErrorMessage('Unable to fetch CV metrics: backend offline or no data yet.');
+          if (!hasBackendOfflineWarning) {
+            setHasBackendOfflineWarning(true);
+            setErrorMessage('Unable to fetch CV metrics: backend offline or no data yet.');
+          }
         }
       }
     };
 
     // Initial fetch
     fetchAndUpdateMetric();
-    // Poll every 4 seconds (3‑5s window)
-    const interval = setInterval(fetchAndUpdateMetric, 4000);
+    // Poll every 5 seconds
+    const interval = setInterval(fetchAndUpdateMetric, 5000);
     return () => clearInterval(interval);
   }, [isSessionActive, activeSessionId, hasBackendOfflineWarning]);
 
@@ -308,14 +307,13 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
       
       setLatestMetric(null);
       setElapsedSeconds(0);
-      setFocusHistory([]);
-      setLoadHistory([]);
-      setFatigueHistory([]);
+      setSessionMetrics([]);
       setIsSessionActive(true);
       setHasBackendOfflineWarning(false);
+      setStreamStatus('Waiting');
       
-      // Reset area chart baseline
-      setFocusStream([{ time: 'Just now', focus: 85, cognitiveLoad: 50 }]);
+      // Reset area chart baseline with no fake data
+      setFocusStream([]);
     } catch (err: any) {
       console.error('Failed to start session:', err);
       setErrorMessage(err.message || 'Failed to start focus session. FastAPI backend offline.');
@@ -330,48 +328,81 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
     setIsLoading(true);
     setErrorMessage(null);
 
-    // Compute session-end aggregates based on latest telemetry snapshot
-    const lastM = latestMetric;
-    const focus_score = lastM ? lastM.focus_score : 85;
-    const cognitive_load = lastM ? lastM.cognitive_load : 55;
-    const fatigueVal = lastM ? lastM.fatigue_score : 20;
+      // We will calculate final session productivity after parsing metrics, 
+      // but we need a placeholder to send to the backend end_session if we want.
+      // Wait, endSession takes productivity_score. We should calculate it FIRST!
+      
+      const finalMetrics = sessionMetrics.length > 0 ? sessionMetrics : [{focus_score: 85, attention_state: 'Focused', gaze_status: 'On Screen', cognitive_load: 50, fatigue_score: 20}];
+      const totalSamples = finalMetrics.length;
+      let validFocusSum = 0;
+      let highestFocus = 0;
+      let invalidCount = 0;
+      let productiveSamples = 0;
+      let validLoadSum = 0;
+      let consecutive100s = 0;
+      let hasSustained100 = false;
 
-    let fatigue_level: 'Low' | 'Medium' | 'High' = 'Low';
-    if (fatigueVal >= 25 && fatigueVal <= 35) {
-      fatigue_level = 'Medium';
-    } else if (fatigueVal > 35) {
-      fatigue_level = 'High';
-    }
+      finalMetrics.forEach(m => {
+        const isMissingFace = m.gaze_status === 'Off Screen' || m.gaze_status === 'Uncertain';
+        const isInvalid = isMissingFace || m.attention_state !== 'Focused';
+        
+        validLoadSum += (m.cognitive_load || 50);
 
-    const productivity_score = Math.max(50, Math.min(100, Math.round(focus_score - fatigueVal / 3)));
-
-    try {
-      await endSession({
-        session_id: activeSessionId,
-        focus_score,
-        cognitive_load,
-        fatigue_level,
-        productivity_score
+        if (isInvalid) {
+          invalidCount++;
+          validFocusSum += 15; // Weight invalid/missing samples as very low focus
+          consecutive100s = 0;
+        } else {
+          validFocusSum += (m.focus_score || 0);
+          if ((m.focus_score || 0) > highestFocus) highestFocus = m.focus_score;
+          if ((m.focus_score || 0) >= 70) productiveSamples++;
+          
+          if ((m.focus_score || 0) >= 99) {
+            consecutive100s++;
+            if (consecutive100s >= 3) hasSustained100 = true; // 3 samples * 5s = 15s >= 10s
+          } else {
+            consecutive100s = 0;
+          }
+        }
       });
 
-      // Prepare Session Summary Details
+      const avgFocus = Math.round(validFocusSum / totalSamples);
+      const avgLoad = Math.round(validLoadSum / totalSamples);
+      const consistency = Math.round((productiveSamples / totalSamples) * 100);
+      const initialFatigue = finalMetrics[0].fatigue_score || 20;
+      const finalFatigueVal = finalMetrics[finalMetrics.length - 1].fatigue_score || 20;
+
+      const validRatio = (totalSamples - invalidCount) / totalSamples;
+      const trackingConfidence = validRatio;
+
+      let baseProductivity = (avgFocus * 0.6) + (consistency * 0.4);
+      if (trackingConfidence < 0.8) baseProductivity -= 15;
+      if (finalFatigueVal > 30) baseProductivity -= 10;
+      
+      let computedProductivity = Math.round(Math.max(10, Math.min(100, baseProductivity)));
+      if (computedProductivity === 100) {
+        if (avgFocus < 85 || consistency < 80 || trackingConfidence < 0.85 || finalFatigueVal > 25) {
+          computedProductivity = 99;
+        }
+      }
+
+      try {
+      await endSession({
+        session_id: activeSessionId,
+        focus_score: avgFocus, // Save avg focus to DB instead of last frame
+        cognitive_load: avgLoad,
+        fatigue_level: finalFatigueVal > 35 ? 'High' : (finalFatigueVal > 25 ? 'Medium' : 'Low'),
+        productivity_score: computedProductivity
+      });
+
       const elapsedFormatted = formatTime(elapsedSeconds);
-      const finalFocusArr = focusHistory.length > 0 ? focusHistory : [85];
-      const finalLoadArr = loadHistory.length > 0 ? loadHistory : [50];
-      const finalFatigueArr = fatigueHistory.length > 0 ? fatigueHistory : [20];
+      let peakFocus = highestFocus;
+      if (peakFocus >= 99 && !hasSustained100) {
+        peakFocus = 98; // Cap if not sustained
+      }
 
-      const avgFocus = Math.round(finalFocusArr.reduce((a,b) => a+b, 0) / finalFocusArr.length);
-      const peakFocus = Math.max(...finalFocusArr);
-      const avgLoad = Math.round(finalLoadArr.reduce((a,b) => a+b, 0) / finalLoadArr.length);
-      const totalSamples = finalFocusArr.length;
-
-      // Focus Consistency %: percentage of samples where focus score >= 80% (Requirement 6)
-      const highFocusSamples = finalFocusArr.filter(f => f >= 80).length;
-      const consistency = Math.round((highFocusSamples / finalFocusArr.length) * 100);
       
       // Determine fatigue trend
-      const initialFatigue = finalFatigueArr[0];
-      const finalFatigueVal = finalFatigueArr[finalFatigueArr.length - 1];
       let fatigueTrend = 'Stable Low';
       if (finalFatigueVal > initialFatigue + 5) {
         fatigueTrend = 'Slight Rising';
@@ -381,15 +412,25 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
         fatigueTrend = 'Medium Fatigue';
       }
 
-      // Motivational AI summary with consistency metrics integrated
-      // TODO: Implement NLP insight generation procees later
+      // Motivational AI summary with tracking quality logic
+      
+      let telemetryQuality = 'Poor';
+      if (trackingConfidence > 0.85) telemetryQuality = 'Excellent';
+      else if (trackingConfidence > 0.6) telemetryQuality = 'Good';
+      else if (trackingConfidence > 0.35) telemetryQuality = 'Partial';
+
+      const isPoorTracking = trackingConfidence < 0.45;
+
       let aiSentence = 'Session completed. Moderate cognitive drift detected; consider scheduling a short recovery break.';
-      if (consistency >= 85) {
+      if (isPoorTracking) {
+        aiSentence = "Tracking quality was inconsistent. Reliable cognitive inference could not be established.";
+        fatigueTrend = "Unknown";
+      } else if (computedProductivity >= 90) {
         aiSentence = `High sustained focus detected at ${consistency}% consistency with minimal fatigue drift. Outstanding deep work!`;
-      } else if (avgFocus >= 80) {
+      } else if (computedProductivity >= 75) {
         aiSentence = `Solid deep work period with ${consistency}% consistency. Maintained strong cognitive alignment with minor load fluctuations.`;
-      } else if (avgFocus >= 75) {
-        aiSentence = `Good attention balance achieved during this session. Consider short recovery cycles to boost focus consistency.`;
+      } else {
+        aiSentence = `Session completed with moderate cognitive drift. Average focus was ${avgFocus}%. Consider short recovery cycles to boost focus consistency.`;
       }
 
       setSummaryData({
@@ -397,11 +438,13 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
         avgFocus,
         peakFocus,
         avgLoad,
-        productivityScore: productivity_score,
+        productivityScore: isPoorTracking ? 'N/A' : computedProductivity,
         fatigueTrend,
         aiSentence,
         totalSamples,
-        consistency
+        consistency,
+        isPoorTracking,
+        telemetryQuality
       });
 
       // Clear session identifier from localStorage
@@ -445,10 +488,10 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
   // ==========================================
   // 6. ANIMATED COUNTERS FOR TELEMETRY
   // ==========================================
-  const animatedFocusScore = useAnimatedCounter(isSessionActive && latestMetric ? latestMetric.focus_score : 85);
+  const animatedFocusScore = useAnimatedCounter(isSessionActive && latestMetric ? latestMetric.focus_score : 0);
   const animatedBlinkRate = useAnimatedCounter(isSessionActive && latestMetric ? latestMetric.blink_rate : 0);
   const animatedCognitiveLoad = useAnimatedCounter(isSessionActive && latestMetric ? latestMetric.cognitive_load : 0);
-  const animatedFatigueScore = useAnimatedCounter(isSessionActive && latestMetric ? latestMetric.fatigue_score : 20);
+  const animatedFatigueScore = useAnimatedCounter(isSessionActive && latestMetric ? latestMetric.fatigue_score : 0);
 
   // ==========================================
   // 7. REACTIVE DIAGNOSTIC METRIC CARDS
@@ -456,8 +499,8 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
   const metricCards = [
     {
       title: 'Blink rate',
-      value: isSessionActive && latestMetric ? `${animatedBlinkRate} /min` : '0 /min',
-      status: 'Normal',
+      value: isSessionActive && latestMetric ? `${animatedBlinkRate} /min` : '--',
+      status: isSessionActive && latestMetric ? 'Normal' : '--',
       statusColor: 'text-zinc-550',
       icon: Eye,
       iconColor: 'text-cyan-400',
@@ -465,8 +508,8 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
     },
     {
       title: 'Gaze status',
-      value: isSessionActive && latestMetric ? latestMetric.gaze_status : (isSessionActive ? 'Calculating...' : 'Offline'),
-      status: isSessionActive ? 'Active tracking' : '--',
+      value: isSessionActive && latestMetric ? latestMetric.gaze_status : (isSessionActive ? 'Waiting...' : 'Offline'),
+      status: isSessionActive && latestMetric ? 'Active tracking' : '--',
       statusColor: 'text-teal-400/65',
       icon: Activity,
       iconColor: 'text-teal-400',
@@ -474,8 +517,8 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
     },
     {
       title: 'Attention state',
-      value: isSessionActive && latestMetric ? latestMetric.attention_state : (isSessionActive ? 'Calculating...' : 'Idle'),
-      status: isSessionActive ? `Sustained ${formatTime(elapsedSeconds)}` : '--',
+      value: isSessionActive && latestMetric ? (latestMetric.gaze_status === 'Off Screen' ? 'Away' : latestMetric.attention_state) : (isSessionActive ? 'Waiting...' : 'Idle'),
+      status: isSessionActive && latestMetric ? `Sustained ${formatTime(elapsedSeconds)}` : '--',
       statusColor: 'text-violet-400/65',
       icon: Sparkles,
       iconColor: 'text-violet-400',
@@ -483,8 +526,8 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
     },
     {
       title: 'Posture',
-      value: isSessionActive && latestMetric ? latestMetric.posture_status : (isSessionActive ? 'Calculating...' : 'Unknown'),
-      status: isSessionActive ? (latestMetric?.posture_status === 'Slouched' ? 'Recalibrate posture' : 'Optimal alignment') : '--',
+      value: isSessionActive && latestMetric ? latestMetric.posture_status : (isSessionActive ? 'Waiting...' : 'Unknown'),
+      status: isSessionActive && latestMetric ? (latestMetric.posture_status === 'Slouched' ? 'Recalibrate posture' : 'Optimal alignment') : '--',
       statusColor: isSessionActive && latestMetric?.posture_status === 'Slouched' ? 'text-amber-400' : 'text-zinc-550',
       icon: Zap,
       iconColor: 'text-amber-400',
@@ -492,8 +535,8 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
     },
     {
       title: 'Active tab',
-      value: isSessionActive && latestMetric ? latestMetric.active_tab : 'None',
-      status: isSessionActive ? 'Productive category' : '--',
+      value: isSessionActive && latestMetric ? latestMetric.active_tab : (isSessionActive ? 'Waiting...' : 'None'),
+      status: isSessionActive && latestMetric ? 'Productive category' : '--',
       statusColor: 'text-zinc-550',
       icon: Globe,
       iconColor: 'text-pink-400',
@@ -501,9 +544,9 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
     },
     {
       title: 'Fatigue index',
-      value: isSessionActive && latestMetric ? `${animatedFatigueScore}%` : (isSessionActive ? 'Calculating...' : 'Offline'),
-      status: isSessionActive ? (animatedFatigueScore < 25 ? 'Optimal Low' : (animatedFatigueScore < 35 ? 'Moderate' : 'High Alert')) : '--',
-      statusColor: isSessionActive ? (animatedFatigueScore < 25 ? 'text-emerald-400' : (animatedFatigueScore < 35 ? 'text-amber-400' : 'text-rose-450')) : 'text-zinc-550',
+      value: isSessionActive && latestMetric ? `${animatedFatigueScore}%` : '--',
+      status: isSessionActive && latestMetric ? (animatedFatigueScore < 25 ? 'Optimal Low' : (animatedFatigueScore < 35 ? 'Moderate' : 'High Alert')) : '--',
+      statusColor: isSessionActive && latestMetric ? (animatedFatigueScore < 25 ? 'text-emerald-400' : (animatedFatigueScore < 35 ? 'text-amber-400' : 'text-rose-450')) : 'text-zinc-550',
       icon: Zap,
       iconColor: 'text-rose-400',
       iconBg: 'bg-rose-500/10 border-rose-500/20'
@@ -572,57 +615,10 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
             {/* Webcam Preview glassmorphism container */}
             <div className="w-full rounded-2xl border border-white/5 bg-slate-950/25 backdrop-blur-lg shadow-2xl overflow-hidden flex flex-col min-h-[460px] relative select-none">
               
-              {/* Animated scanning bar overlay sweep (Requirement 1) */}
-              {isSessionActive && (
-                <div className="absolute left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent pointer-events-none animate-scan z-20 shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
-              )}
-
-              {/* Subtle animated neural grid dots background (Requirement 1) */}
+              {/* Subtle animated neural grid dots background */}
               <div className="absolute inset-0 neural-dots opacity-[0.08] pointer-events-none" />
               <div className="absolute inset-0 grid-background opacity-[0.02] pointer-events-none" />
 
-              {/* Spawning dynamic particles system that scales density by viewport size (Requirement 3 & 7) */}
-              {isSessionActive && Array.from({ length: windowWidth > 1024 ? 8 : (windowWidth > 640 ? 4 : 2) }).map((_, idx) => {
-                const colors = ['bg-cyan-400', 'bg-violet-400', 'bg-emerald-400', 'bg-pink-400'];
-                const glows = ['shadow-[0_0_8px_#06b6d4]', 'shadow-[0_0_10px_#8b5cf6]', 'shadow-[0_0_8px_#10b981]', 'shadow-[0_0_10px_#ec4899]'];
-                const color = colors[idx % colors.length];
-                const glow = glows[idx % glows.length];
-                const startLeft = 10 + (idx * 11) % 80;
-                const startTop = 20 + (idx * 9) % 60;
-                return (
-                  <motion.div
-                    key={idx}
-                    className={`absolute w-1 h-1 rounded-full ${color} ${glow} opacity-[0.25] pointer-events-none z-10`}
-                    style={{ left: `${startLeft}%`, top: `${startTop}%` }}
-                    animate={{
-                      y: [0, -35, 0],
-                      x: [0, (idx % 2 === 0 ? 15 : -15), 0],
-                      opacity: [0.15, 0.45, 0.15],
-                    }}
-                    transition={{
-                      duration: 6 + (idx * 1.5) % 5,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      delay: idx * 0.4,
-                    }}
-                  />
-                );
-              })}
-
-              {/* "AI ACTIVE" status chip floating (Requirement 8) */}
-              {isSessionActive && (
-                <div className="absolute top-[20px] left-[20px] z-30 flex items-center gap-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 px-2.5 py-0.5 text-[8px] font-black tracking-widest text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)] uppercase select-none pointer-events-none">
-                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_4px_#22d3ee]" />
-                  AI ACTIVE
-                </div>
-              )}
-
-              {/* Low-opacity technical corner brackets HUD (Requirement 1) */}
-              <div className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 border-cyan-500/20 pointer-events-none z-10" />
-              <div className="absolute top-4 right-4 w-4 h-4 border-t-2 border-r-2 border-cyan-500/20 pointer-events-none z-10" />
-              <div className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 border-cyan-500/20 pointer-events-none z-10" />
-              <div className="absolute bottom-4 right-4 w-4 h-4 border-b-2 border-r-2 border-cyan-500/20 pointer-events-none z-10" />
-              
           {/* Top row controls */}
           <div className="flex items-center justify-between p-5 relative z-10">
             {/* UPGRADED LIVE STATUS AND TIMER (Requirement 2 & 9) */}
@@ -674,7 +670,7 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
               Session: {activeSessionId.slice(0, 8)}
             </div>
           )}
-          {process.env.NODE_ENV !== 'production' && (
+          {import.meta.env.DEV && (
             <button
               onClick={() => {
                 localStorage.removeItem('active_session_id');
@@ -682,6 +678,9 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
                 setActiveSessionId(null);
                 setSessionStartTime(null);
                 setIsSessionActive(false);
+                setLatestMetric(null);
+                setFocusStream([]);
+                setStreamStatus('Waiting');
               }}
               className="ml-2 rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-300 hover:bg-amber-500/20"
             >
@@ -689,170 +688,10 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
             </button>
           )}
 
-              {/* Center Webcam Preview Placeholder with Animated FaceMesh SVG (Requirement 1) */}
-              <div className="flex-1 flex flex-col items-center justify-center relative min-h-[280px]">
-                
-                {/* SVG Biometric FaceMesh Overlay (Requirement 1) */}
-                {isSessionActive && (
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 text-cyan-500/15" viewBox="0 0 400 300" preserveAspectRatio="none">
-                    {/* Face boundary wireframe contour */}
-                    <motion.path 
-                      d="M200,55 C250,55 275,105 275,150 C275,215 240,255 200,255 C160,255 125,215 125,150 C125,105 150,55 200,55 Z"
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="0.8" 
-                      strokeDasharray="4 6"
-                      animate={{ strokeDashoffset: [0, -20], opacity: [0.25, 0.55, 0.25] }}
-                      transition={{ repeat: Infinity, duration: 6, ease: "linear" }}
-                    />
-                    
-                    {/* Eyes tracking nodes */}
-                    <motion.circle cx="170" cy="120" r="3" fill="#22d3ee" className="shadow-[0_0_6px_#22d3ee]" animate={{ scale: [1, 1.25, 1], opacity: [0.5, 0.85, 0.5] }} transition={{ repeat: Infinity, duration: 1.8 }} />
-                    <motion.circle cx="230" cy="120" r="3" fill="#22d3ee" className="shadow-[0_0_6px_#22d3ee]" animate={{ scale: [1, 1.25, 1], opacity: [0.5, 0.85, 0.5] }} transition={{ repeat: Infinity, duration: 1.8, delay: 0.3 }} />
-                    
-                    {/* Eyebrow wireframes (Complex Mesh) */}
-                    <path d="M150,110 Q170,103 185,112 M215,112 Q230,103 250,110" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.4" />
-
-                    {/* Outer cheekbones jaw tracking anchors */}
-                    <motion.circle cx="130" cy="155" r="1.5" fill="currentColor" opacity="0.5" />
-                    <motion.circle cx="270" cy="155" r="1.5" fill="currentColor" opacity="0.5" />
-                    <motion.circle cx="200" cy="250" r="2" fill="currentColor" opacity="0.5" />
-
-                    {/* Vector Gaze Projection trackers */}
-                    <motion.line 
-                      x1={170 ?? 0} y1={120 ?? 0} x2={155 ?? 0} y2={100 ?? 0} 
-                      stroke="#22d3ee" strokeWidth="0.8" opacity="0.5"
-                      animate={{ x2: [155, 175, 155], y2: [100, 115, 100] }}
-                      transition={{ repeat: Infinity, duration: 7, ease: "easeInOut" }}
-                    />
-                    <motion.line 
-                      x1={230 ?? 0} y1={120 ?? 0} x2={245 ?? 0} y2={100 ?? 0} 
-                      stroke="#22d3ee" strokeWidth="0.8" opacity="0.5"
-                      animate={{ x2: [245, 225, 245], y2: [100, 115, 100] }}
-                      transition={{ repeat: Infinity, duration: 7, ease: "easeInOut", delay: 0.35 }}
-                    />
-
-                    {/* Nose Wireframe mapping anchor */}
-                    <path d="M200,115 L200,165 L190,180 L210,180 Z" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.3" />
-                    
-                    {/* Mouth micro-expression mapping ring */}
-                    <motion.path 
-                      d="M175,200 Q200,210 225,200 Q200,192 175,200 Z" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="0.8"
-                      animate={{ opacity: [0.25, 0.65, 0.25] }}
-                      transition={{ repeat: Infinity, duration: 3 }}
-                    />
-
-                    {/* Transverse forensic tracking vector lines */}
-                    <line x1={200 ?? 0} y1={55 ?? 0} x2={200 ?? 0} y2={115 ?? 0} stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
-                    <line x1={125 ?? 0} y1={150 ?? 0} x2={170 ?? 0} y2={120 ?? 0} stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
-                    <line x1={275 ?? 0} y1={150 ?? 0} x2={230 ?? 0} y2={120 ?? 0} stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
-                    <line x1={170 ?? 0} y1={120 ?? 0} x2={200 ?? 0} y2={115 ?? 0} stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
-                    <line x1={230 ?? 0} y1={120 ?? 0} x2={200 ?? 0} y2={115 ?? 0} stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
-                  </svg>
-                )}
-
-                {/* Randomized low-opacity HUD Telemetry overlays (Requirement 1 & 4) */}
-                {isSessionActive && (
-                  <div className="absolute right-[20px] top-[10px] flex flex-col gap-1.5 text-right font-mono text-[8px] text-zinc-550 select-none pointer-events-none z-10 leading-none">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <span className="text-[6px] text-cyan-400 animate-pulse">●</span>
-                      <span>GAZE_LOCK:</span>
-                      <span className="text-zinc-400 font-bold">{latestMetric?.gaze_status === 'On Screen' ? '1.000' : '0.000'}</span>
-                    </div>
-                    <div className="flex items-center justify-end gap-1.5">
-                      <span className="text-[6px] text-violet-400">●</span>
-                      <span>ATTN_INDEX:</span>
-                      <span className="text-zinc-400 font-bold">{(animatedFocusScore / 100).toFixed(3)}</span>
-                    </div>
-                    <div className="flex items-center justify-end gap-1.5">
-                      <span className="text-[6px] text-pink-400">●</span>
-                      <span>COG_LOAD:</span>
-                      <span className="text-zinc-400 font-bold">{(animatedCognitiveLoad / 100).toFixed(3)}</span>
-                    </div>
-                    <div className="flex items-center justify-end gap-1.5">
-                      <span className="text-[6px] text-amber-400">●</span>
-                      <span>FACE_VECTOR:</span>
-                      <span className="text-zinc-400 font-bold">
-                        {(0.452 + (Math.random() - 0.5) * 0.004).toFixed(3)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-end gap-1.5">
-                      <span className="text-[6px] text-emerald-400">●</span>
-                      <span>FLOW_STATE:</span>
-                      <span className="text-zinc-400 font-bold">
-                        {animatedFocusScore >= 80 ? 'ACTIVE' : 'STABLE'}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Shifting mesh tracking values bottom-left (Requirement 1) */}
-                {isSessionActive && (
-                  <div className="absolute left-[20px] bottom-[15px] font-mono text-[8px] text-zinc-650 flex flex-col gap-0.5 select-none pointer-events-none z-10 leading-none">
-                    <span>SYS_COORD_MESH: [{(200.45 + (Math.random() - 0.5) * 0.05).toFixed(2)}, {(115.12 + (Math.random() - 0.5) * 0.05).toFixed(2)}]</span>
-                    <span>VECTOR_PITCH: [{(Math.random() * 0.02).toFixed(3)}, {(Math.random() * 0.02).toFixed(3)}]</span>
-                  </div>
-                )}
-
-                {/* Simulated webcam visual scanning layout */}
-                <div className="absolute inset-x-8 inset-y-4 rounded-2xl border border-dashed border-white/[0.02] flex items-center justify-center">
-                  <AnimatePresence>
-                    {isSessionActive ? (
-                      <motion.div 
-                        key="scanning"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="flex flex-col items-center gap-4.5 relative z-10"
-                      >
-                        {/* Scanning Pulsing Concentric Radar Rings (Requirement 1) */}
-                        <div className="relative flex items-center justify-center">
-                          <motion.div 
-                            className="absolute h-18 w-18 rounded-full border border-cyan-400/20 animate-radar"
-                          />
-                          <motion.div 
-                            className="absolute h-26 w-26 rounded-full border border-violet-400/10 animate-radar [animation-delay:1.5s]"
-                          />
-                          <div className="flex h-13 w-13 items-center justify-center rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.15)] relative z-10">
-                            {/* TODO: Replace placeholder webcam visualization with OpenCV gaze estimation later */}
-                            <Camera className="h-5 w-5 animate-pulse" />
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-col gap-1 text-center">
-                          <span className="text-xs font-semibold text-zinc-200 antialiased font-sans">
-                            Webcam feed mapping active
-                          </span>
-                          <span className="text-[10px] font-medium text-zinc-550 font-mono">
-                            Facial vectors & ocular micro-expressions active
-                          </span>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <motion.div 
-                        key="offline"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="flex flex-col items-center gap-3.5 relative z-10"
-                      >
-                        <div className="flex h-13 w-13 items-center justify-center rounded-full bg-zinc-550/5 border border-white/5 text-zinc-650">
-                          <Camera className="h-5 w-5" />
-                        </div>
-                        <div className="flex flex-col gap-1 text-center">
-                          <span className="text-xs font-semibold text-zinc-400 antialiased">
-                            Local model standby
-                          </span>
-                          <span className="text-[10px] font-medium text-zinc-600 font-mono">
-                            Press start to activate inference engine
-                          </span>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+              {/* Center Webcam Area */}
+              <div className="flex-1 w-full relative z-0">
+                <div className="absolute inset-0 w-full h-full">
+                  <BrowserCVMonitor isActive={isSessionActive} sessionId={activeSessionId} />
                 </div>
               </div>
 
@@ -863,7 +702,7 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
                 <div className="flex flex-col gap-0.5 text-left">
                   <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest leading-none">Focus score</span>
                   <span className="text-3xl font-black text-cyan-400 tracking-tight leading-none mt-1 shadow-cyan-400/10 drop-shadow-[0_0_8px_rgba(6,182,212,0.15)] font-sans">
-                    {isSessionActive ? (latestMetric ? animatedFocusScore : 'Calcul...') : '--'}
+                    {isSessionActive && latestMetric ? animatedFocusScore : '--'}
                   </span>
                 </div>
 
@@ -975,54 +814,62 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
 
           {/* Wave chart container */}
           <div className="flex-1 w-full text-xs">
-            <div className="w-full h-[260px] min-h-[260px]">
-              <ResponsiveContainer width="100%" height={260}>
-                <AreaChart data={focusStream.length > 0 ? focusStream : [{ time: 'Just now', focus: 85 }]} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="glowCyanLive" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.12} />
-                      <stop offset="60%" stopColor="#8b5cf6" stopOpacity={0.04} />
-                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.0} />
-                    </linearGradient>
-                    <filter id="glowCyanFilter">
-                      <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#22d3ee" floodOpacity="0.45" />
-                    </filter>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.015)" vertical={false} />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="#4b5563" 
-                    tickLine={false} 
-                    axisLine={false}
-                    dy={10}
-                    style={{ fontSize: '9px', fontWeight: 'bold' }}
-                  />
-                  <YAxis 
-                    stroke="#4b5563" 
-                    tickLine={false} 
-                    axisLine={false} 
-                    domain={[40, 100]}
-                    ticks={[40, 60, 80, 100]}
-                    dx={-5}
-                    style={{ fontSize: '9px', fontWeight: 'bold' }}
-                  />
-                  <Tooltip 
-                    content={<LiveTooltip />}
-                    cursor={{ stroke: 'rgba(255, 255, 255, 0.03)', strokeWidth: 1 }} 
-                  />
-                  <Area 
-                    type="monotone" 
-                    name="Focus"
-                    dataKey="focus" 
-                    stroke="#06b6d4" 
-                    strokeWidth={2.5}
-                    fillOpacity={1} 
-                    fill="url(#glowCyanLive)"
-                    filter="url(#glowCyanFilter)"
-                    activeDot={{ r: 5, strokeWidth: 0, fill: '#22d3ee' }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="w-full h-[260px] min-h-[260px] flex items-center justify-center">
+              {focusStream.length > 0 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <AreaChart data={focusStream} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="glowCyanLive" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.12} />
+                        <stop offset="60%" stopColor="#8b5cf6" stopOpacity={0.04} />
+                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.0} />
+                      </linearGradient>
+                      <filter id="glowCyanFilter">
+                        <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#22d3ee" floodOpacity="0.45" />
+                      </filter>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.015)" vertical={false} />
+                    <XAxis 
+                      dataKey="time" 
+                      stroke="#4b5563" 
+                      tickLine={false} 
+                      axisLine={false}
+                      dy={10}
+                      style={{ fontSize: '9px', fontWeight: 'bold' }}
+                    />
+                    <YAxis 
+                      stroke="#4b5563" 
+                      tickLine={false} 
+                      axisLine={false} 
+                      domain={[40, 100]}
+                      ticks={[40, 60, 80, 100]}
+                      dx={-5}
+                      style={{ fontSize: '9px', fontWeight: 'bold' }}
+                    />
+                    <Tooltip 
+                      content={<LiveTooltip />}
+                      cursor={{ stroke: 'rgba(255, 255, 255, 0.03)', strokeWidth: 1 }} 
+                    />
+                    <Area 
+                      type="monotone" 
+                      name="Focus"
+                      dataKey="focus" 
+                      stroke="#06b6d4" 
+                      strokeWidth={2.5}
+                      fillOpacity={1} 
+                      fill="url(#glowCyanLive)"
+                      filter="url(#glowCyanFilter)"
+                      activeDot={{ r: 5, strokeWidth: 0, fill: '#22d3ee' }}
+                      dot={focusStream.length === 1 ? { r: 4, strokeWidth: 0, fill: '#22d3ee' } : false}
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-zinc-500 font-semibold h-full w-full">
+                  <span className="animate-pulse">Waiting for CV stream data...</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1082,6 +929,18 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
                 <h4 className="text-xs font-semibold text-zinc-200 group-hover:text-cyan-400 transition-colors">
                   Load status
                 </h4>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="text-zinc-400 text-xs mb-1">Consistency</div>
+                  <div className="text-2xl font-bold text-white">
+                    {summaryData?.isPoorTracking ? '--' : `${summaryData?.consistency}%`}
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="text-zinc-400 text-xs mb-1">Telemetry Quality</div>
+                  <div className={`text-xl font-bold ${summaryData?.telemetryQuality === 'Excellent' ? 'text-emerald-400' : summaryData?.telemetryQuality === 'Good' ? 'text-cyan-400' : summaryData?.telemetryQuality === 'Partial' ? 'text-yellow-400' : 'text-rose-400'}`}>
+                    {summaryData?.telemetryQuality}
+                  </div>
+                </div>
                 <p className="text-[11px] text-zinc-450 font-semibold mt-0.5 leading-relaxed">
                   {isSessionActive && latestMetric 
                     ? `Cognitive workload index: ${animatedCognitiveLoad}%`
@@ -1127,34 +986,29 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
                   {/* Gauge */}
                   <div className="relative flex items-center justify-center h-28 w-28 shrink-0 select-none">
                     <svg className="h-24 w-24 transform -rotate-90" viewBox="0 0 100 100">
-                      {/* Background circle */}
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        stroke="rgba(255, 255, 255, 0.05)"
-                        strokeWidth="7.5"
-                        fill="transparent"
-                      />
-                      {/* Progress circle */}
-                      <motion.circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        stroke="#10b981"
-                        strokeWidth="7.5"
-                        fill="transparent"
-                        strokeDasharray="251.2"
-                        initial={{ strokeDashoffset: 251.2 }}
-                        animate={{ strokeDashoffset: 251.2 - (251.2 * summaryData.productivityScore) / 100 }}
-                        transition={{ duration: 1.2, ease: "easeOut" }}
-                        strokeLinecap="round"
-                        className="shadow-[0_0_12px_#10b981]"
-                      />
+                      <circle cx="50" cy="50" r="40" stroke="rgba(255, 255, 255, 0.05)" strokeWidth="7.5" fill="transparent" />
+                      {!summaryData.isPoorTracking && (
+                        <motion.circle
+                          cx="50" cy="50" r="40"
+                          stroke="#10b981" strokeWidth="7.5" fill="transparent"
+                          strokeDasharray="251.2"
+                          initial={{ strokeDashoffset: 251.2 }}
+                          animate={{ strokeDashoffset: 251.2 - (251.2 * (summaryData.productivityScore as number)) / 100 }}
+                          transition={{ duration: 1.2, ease: "easeOut" }}
+                          strokeLinecap="round"
+                          className="shadow-[0_0_12px_#10b981]"
+                        />
+                      )}
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center select-none leading-none">
-                      <span className="text-xl font-black text-emerald-400 font-sans">{summaryData.productivityScore}%</span>
-                      <span className="text-[7px] font-black text-zinc-400 uppercase tracking-widest mt-1">PRODUCTIVE</span>
+                      {summaryData.isPoorTracking ? (
+                         <span className="text-[9px] font-black text-rose-400 text-center uppercase tracking-wider">Poor Data</span>
+                      ) : (
+                        <>
+                          <span className="text-xl font-black text-emerald-400 font-sans">{summaryData.productivityScore}%</span>
+                          <span className="text-[7px] font-black text-zinc-400 uppercase tracking-widest mt-1">PRODUCTIVE</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -1175,13 +1029,13 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
                 </div>
 
                 {/* Telemetry Stats Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   
                   {/* Focus Consistency */}
                   <div className="rounded-xl border border-white/5 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
                     <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block leading-none">Focus Consistency</span>
                     <span className="text-base font-extrabold text-cyan-400 mt-1.5 block leading-none font-mono">
-                      {summaryData.consistency}%
+                      {summaryData.isPoorTracking ? '--' : `${summaryData.consistency}%`}
                     </span>
                     <span className="text-[7px] font-medium text-zinc-500 mt-1 block">Time &gt;= 80% focus</span>
                   </div>
@@ -1190,7 +1044,7 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
                   <div className="rounded-xl border border-white/5 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
                     <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block leading-none">Average Focus</span>
                     <span className="text-base font-extrabold text-cyan-400 mt-1.5 block leading-none font-mono">
-                      {summaryData.avgFocus}%
+                      {summaryData.isPoorTracking ? '--' : `${summaryData.avgFocus}%`}
                     </span>
                     <span className="text-[7px] font-medium text-zinc-500 mt-1 block">Focus index mean</span>
                   </div>
@@ -1198,12 +1052,25 @@ const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offl
                   {/* Peak Focus */}
                   <div className="rounded-xl border border-white/5 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
                     <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block leading-none">Peak Focus</span>
-                    <span className="text-base font-extrabold text-violet-400 mt-1.5 block leading-none font-mono">
-                      {summaryData.peakFocus}%
+                    <span className="text-base font-extrabold text-white mt-1.5 block leading-none font-mono">
+                      {summaryData.isPoorTracking ? '--' : `${summaryData.peakFocus}%`}
                     </span>
-                    <span className="text-[7px] font-medium text-zinc-500 mt-1 block">Highest concentration</span>
+                    <span className="text-[7px] font-medium text-zinc-500 mt-1 block">
+                      {summaryData.peakFocus >= 99 ? 'Sustained peak focus' : 'Momentary peak'}
+                    </span>
                   </div>
 
+                  {/* Telemetry Quality */}
+                  <div className="rounded-xl border border-white/5 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
+                    <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block leading-none">Telemetry Quality</span>
+                    <span className={`text-sm font-extrabold mt-1.5 block leading-none uppercase ${summaryData.telemetryQuality === 'Excellent' ? 'text-emerald-400' : summaryData.telemetryQuality === 'Good' ? 'text-cyan-400' : summaryData.telemetryQuality === 'Partial' ? 'text-yellow-400' : 'text-rose-400'}`}>
+                      {summaryData.telemetryQuality}
+                    </span>
+                    <span className="text-[7px] font-medium text-zinc-500 mt-1 block">Confidence weighting</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {/* Total Samples */}
                   <div className="rounded-xl border border-white/5 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
                     <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block leading-none">Telemetry Samples</span>

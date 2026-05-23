@@ -54,9 +54,14 @@ uvicorn app.main:app --reload
 
 Start a focus session (via Swagger UI at `http://127.0.0.1:8000/docs` → `POST /sessions/start`), then copy the returned `session_id` UUID.
 
-Launch the CV monitor with streaming enabled:
+Launch the CV monitor with streaming enabled using your user ID to automatically discover active sessions:
 ```bash
-python cv_monitor.py --camera 0 --stream --session-id <session-id-uuid>
+python cv_monitor.py --camera 0 --stream --user-id <user_id>
+```
+
+Alternatively, you can manually attach to a specific session:
+```bash
+python cv_monitor.py --camera 0 --stream --session-id <session_id>
 ```
 
 Full example with all streaming options:
@@ -75,7 +80,8 @@ python cv_monitor.py \
 |---|---|---|---|
 | `--camera` | `int` | `0` | System webcam index |
 | `--stream` | flag | disabled | Enable backend telemetry streaming |
-| `--session-id` | `str` | `None` | UUID of an active Cognivue focus session |
+| `--user-id` | `str` | `None` | UUID of a user for automatic active session discovery |
+| `--session-id` | `str` | `None` | UUID of an active Cognivue focus session (manual attachment) |
 | `--backend-url` | `str` | `http://127.0.0.1:8000` | FastAPI backend base URL |
 | `--stream-interval` | `int` | `5` | Seconds between each telemetry push |
 | `--eval` | `str` | `None` | Evaluation mode: `posture`, `attention`, or `fatigue` |

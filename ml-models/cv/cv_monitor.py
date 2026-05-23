@@ -37,8 +37,9 @@ except ImportError:
 # =====================================================================
 # THREAD-SAFE GLOBAL SYNC STATE FOR BACKEND TELEMETRY
 # =====================================================================
-backend_status = "Not streaming"  # "Connected", "Offline", "Error", "Not streaming"
+backend_status = "Not streaming"  # "Connected", "Offline", "Error", "Not streaming", "Waiting for active session"
 last_sync_time = "N/A"
+active_session_id = None
 sync_thread_lock = threading.Lock()
 
 def send_telemetry_async(backend_url, payload):
@@ -66,8 +67,14 @@ def send_telemetry_async(backend_url, payload):
                     backend_status = "Connected"
                     last_sync_time = datetime.now().strftime("%H:%M:%S")
             else:
-                # Check for 422 validation error
-                if response.status_code == 422:
+                # Check for session ended/invalid
+                if response.status_code == 400:
+                    print("[SYNC ERROR] Session ended or invalid (400). Returning to waiting mode.", flush=True)
+                    with sync_thread_lock:
+                        global active_session_id
+                        active_session_id = None
+                        backend_status = "Waiting for active session"
+                elif response.status_code == 422:
                     print(f"[SYNC ERROR] 422 Validation Error Response Body: {response.text}", flush=True)
                     with sync_thread_lock:
                         backend_status = "Error"
@@ -193,6 +200,12 @@ def main():
         help="UUID of the active focus session for telemetry streaming."
     )
     parser.add_argument(
+        "--user-id",
+        type=str,
+        default=None,
+        help="UUID of the logged-in user to automatically discover active sessions."
+    )
+    parser.add_argument(
         "--backend-url",
         type=str,
         default="http://127.0.0.1:8000",
@@ -219,14 +232,15 @@ def main():
         sys.exit(1)
 
     # Initialize backend streaming status
-    global backend_status
+    global backend_status, active_session_id
+    active_session_id = args.session_id
     if args.stream:
-        if not args.session_id:
-            print("[WARNING] --stream is enabled but no --session-id was provided.")
+        if not args.session_id and not args.user_id:
+            print("[WARNING] --stream is enabled but neither --session-id nor --user-id was provided.")
             print("[WARNING] Telemetry will NOT be streamed. Running in local mode.")
             backend_status = "Not streaming"
         else:
-            backend_status = "Offline"  # Start as Offline until first successful ping/sync
+            backend_status = "Waiting for active session" if not active_session_id else "Offline"
     else:
         backend_status = "Not streaming"
 
@@ -342,6 +356,7 @@ def main():
     # Telemetry logging timer
     last_telemetry_time = time.time()
     last_stream_time = 0.0
+    last_session_poll_time = 0.0
 
 
     # Evaluation Mode State
@@ -972,8 +987,31 @@ def main():
                     print(json.dumps(telemetry), flush=True)
                 last_telemetry_time = current_time
 
+            # Session Discovery Polling
+            if args.stream and not active_session_id and args.user_id:
+                if current_time - last_session_poll_time >= 5.0:
+                    def poll_worker():
+                        global active_session_id, backend_status
+                        url = f"{args.backend_url.rstrip('/')}/sessions/active/{args.user_id}"
+                        try:
+                            response = requests.get(url, timeout=3)
+                            if response.status_code == 200:
+                                data = response.json()
+                                if data and "id" in data and not data.get("end_time"):
+                                    with sync_thread_lock:
+                                        active_session_id = data["id"]
+                                        backend_status = "Connected"
+                                        print(f"\\n[*] Discovered active session: {active_session_id}", flush=True)
+                        except Exception:
+                            pass
+
+                    if requests is not None:
+                        thread = threading.Thread(target=poll_worker, daemon=True)
+                        thread.start()
+                    last_session_poll_time = current_time
+
             # Telemetry streaming timer check (Do not stream during calibration)
-            if calibrated and args.stream and args.session_id:
+            if calibrated and args.stream and active_session_id:
                 if last_stream_time == 0.0 or current_time - last_stream_time >= args.stream_interval:
                     # Derived focus score
                     derived_focus = 85.0 - (fatigue_score * 0.3)
@@ -1013,7 +1051,7 @@ def main():
                     mapped_attention = "Neutral" if smoothed_attention in ["Away", "Fatigue Warning"] else smoothed_attention
 
                     stream_payload = {
-                        "session_id": args.session_id,
+                        "session_id": active_session_id,
                         "blink_rate": min(60, max(0, int(blink_rate_per_minute))),
                         "gaze_status": mapped_gaze,
                         "posture_status": mapped_posture,
@@ -1090,16 +1128,23 @@ def main():
             
             if status_str == "Connected":
                 status_color = (0, 230, 0)       # Vibrant green
+                if active_session_id:
+                    cv2.putText(frame, f"Session: {active_session_id[:8]}", (220, 42), font, font_scale, COLOR_TEXT, thickness, cv2.LINE_AA)
+                    cv2.putText(frame, f"LAST SYNC: {sync_time_str}", (370, 42), font, font_scale, COLOR_TEXT, thickness, cv2.LINE_AA)
+                else:
+                    cv2.putText(frame, f"LAST SYNC: {sync_time_str}", (220, 42), font, font_scale, COLOR_TEXT, thickness, cv2.LINE_AA)
             elif status_str == "Offline":
                 status_color = (0, 0, 255)       # Red
             elif status_str == "Error":
                 status_color = COLOR_FATIGUE     # Warm amber
+            elif status_str == "Waiting for active session":
+                status_color = COLOR_DISTRACTED  # Yellow-orange
             else:
                 status_color = COLOR_AWAY        # Muted gray
 
             cv2.putText(frame, status_str.upper(), (80, 42), font, font_scale, status_color, thickness + 1, cv2.LINE_AA)
             
-            if status_str != "Not streaming":
+            if status_str != "Not streaming" and status_str != "Connected" and status_str != "Waiting for active session":
                 cv2.putText(frame, f"LAST SYNC: {sync_time_str}", (220, 42), font, font_scale, COLOR_TEXT, thickness, cv2.LINE_AA)
 
 

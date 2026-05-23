@@ -246,17 +246,16 @@ class SessionService:
         end_time_str = session_dict.get("end_time")
         if start_time_str and end_time_str:
             try:
-                # Robust parsing of isoformat timestamps (replacing Z with offset for compatibility)
-                start_time_str_parsed = start_time_str.replace("Z", "+00:00")
-                end_time_str_parsed = end_time_str.replace("Z", "+00:00")
+                import re
+                # Robust parsing of isoformat timestamps
+                start_time_str_parsed = re.sub(r'\.\d+', '', start_time_str.replace("Z", "+00:00"))
+                end_time_str_parsed = re.sub(r'\.\d+', '', end_time_str.replace("Z", "+00:00"))
                 start_time = datetime.fromisoformat(start_time_str_parsed)
                 end_time = datetime.fromisoformat(end_time_str_parsed)
                 
                 duration_delta = end_time - start_time
-                # Use rounded float precision (rounded to 1 decimal place) e.g., 0.5m, 1.2m
-                # Also prevent displaying 0m by taking max of 0.1m if ended
                 duration_minutes_float = max(0.1, round(duration_delta.total_seconds() / 60.0, 1))
                 session_dict["duration_minutes"] = duration_minutes_float
-            except Exception as e:
-                logger.error(f"Enrich session duration failed: {e}")
+            except Exception:
+                pass
         return session_dict

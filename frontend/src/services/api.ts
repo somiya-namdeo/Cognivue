@@ -319,6 +319,32 @@ export interface AIInsightCard {
   supporting_metrics: Record<string, any>;
 }
 
+export interface FocusDriftPoint {
+  time: string;
+  focus: number;
+  distraction: number;
+}
+
+export interface WeeklyTrendPoint {
+  day: string;
+  focus: number;
+  fatigue: number;
+  productivity: number;
+  duration: number;
+}
+
+export interface FatigueCorrelationPoint {
+  time: string;
+  blink_rate: number;
+  fatigue: number;
+}
+
+export interface ProductivityPatternPoint {
+  domain: string;
+  score: number;
+  full_mark?: number;
+}
+
 export interface AdvancedAIInsightsResponse {
   user_id: string;
   generated_at: string;
@@ -327,6 +353,10 @@ export interface AdvancedAIInsightsResponse {
   patterns: BehaviorPatterns;
   insights: AIInsightCard[];
   recommendations: string[];
+  focus_drift_timeline: FocusDriftPoint[];
+  weekly_trends: WeeklyTrendPoint[];
+  fatigue_correlation: FatigueCorrelationPoint[];
+  productivity_patterns: ProductivityPatternPoint[];
 }
 
 export async function getAIInsights(userId: string): Promise<AdvancedAIInsightsResponse> {
