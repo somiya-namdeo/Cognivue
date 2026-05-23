@@ -125,17 +125,18 @@ export const ExtensionPage: React.FC = () => {
 
             {/* Action buttons */}
             <div className="flex flex-wrap items-center gap-3.5 mb-8">
-              <button 
-                onClick={handleDownloadClick}
+              <a 
+                href="/downloads/cognivue-extension.zip"
+                download="cognivue-extension.zip"
                 className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white text-xs font-bold text-slate-950 hover:bg-white/90 hover:shadow-[0_0_15px_rgba(255,255,255,0.25)] transition-all cursor-pointer"
               >
                 <Download className="h-4 w-4" />
-                <span>Add to Chrome</span>
-              </button>
-              <button className="flex items-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-xs font-bold text-white hover:bg-white/[0.02] hover:border-white/20 transition-all">
+                <span>Download Extension ZIP</span>
+              </a>
+              <a href="#installation-guide" className="flex items-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-xs font-bold text-white hover:bg-white/[0.02] hover:border-white/20 transition-all">
                 <Code className="h-4 w-4 text-zinc-400" />
-                <span>View source</span>
-              </button>
+                <span>Installation Guide</span>
+              </a>
             </div>
 
             {/* Features Bullet List */}
@@ -357,6 +358,55 @@ export const ExtensionPage: React.FC = () => {
                 Last synced: <span className="text-white opacity-80">{new Date(latestActivity.recorded_at).toLocaleTimeString()}</span>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* ================= INSTALLATION GUIDE SECTION ================= */}
+        <div id="installation-guide" className="rounded-2xl border border-white/5 bg-slate-950/20 p-6 sm:p-8 backdrop-blur-md flex flex-col gap-6 text-left mt-4 select-text">
+          <div className="flex flex-col gap-2">
+            <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              <Code className="h-5 w-5 text-cyan-400" />
+              Installation Guide
+            </h3>
+            <p className="text-sm text-white/70 font-medium">
+              Chrome Web Store publishing planned for production release. For now, install it locally.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-bold border border-cyan-500/30">1</div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-white">Download & Extract</span>
+                  <p className="text-xs text-white/60 leading-relaxed">Click the download button above to get the ZIP. Extract it to a folder on your computer.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-bold border border-cyan-500/30">2</div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-white">Open Chrome Extensions</span>
+                  <p className="text-xs text-white/60 leading-relaxed">In your browser, navigate to <code className="bg-white/10 px-1.5 py-0.5 rounded text-cyan-300 font-mono">chrome://extensions</code></p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-bold border border-cyan-500/30">3</div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-white">Enable Developer Mode</span>
+                  <p className="text-xs text-white/60 leading-relaxed">Toggle the "Developer mode" switch in the top right corner.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-bold border border-cyan-500/30">4</div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-white">Load Unpacked</span>
+                  <p className="text-xs text-white/60 leading-relaxed">Click "Load unpacked" and select your extracted <code className="bg-white/10 px-1.5 py-0.5 rounded text-cyan-300 font-mono">cognivue-extension</code> folder. Then pin it to your toolbar!</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

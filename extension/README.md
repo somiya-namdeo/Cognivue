@@ -34,20 +34,17 @@ The HUD dynamically evaluates the active tab's domain and transitions between sp
 
 ## 🚀 How to Install and Test Locally
 
-To load the unpack developer extension in any Chromium-compatible browser (Google Chrome, Microsoft Edge, Brave, etc.), follow these steps:
+Chrome Web Store publishing is planned for the production release. For now, you can install the extension locally:
 
-1. Open your browser and navigate to the Extensions management page:
+1. **Download & Extract**: Download the `cognivue-extension.zip` from the dashboard and extract it to a folder on your computer.
+2. **Open Extensions**: In your browser, navigate to:
    ```txt
    chrome://extensions
    ```
-2. Enable **Developer mode** using the toggle switch located in the top-right corner.
-3. Click the **Load unpacked** button in the top-left corner.
-4. Select the project's **`extension`** folder:
-   ```txt
-   c:\Users\namde\OneDrive\Desktop\Cognivue-Project\extension
-   ```
-5. Open any website from the categories table above (e.g. [Google Meet](https://meet.google.com), [GitHub](https://github.com), [Notion](https://notion.so), [Twitter](https://x.com)).
-6. Click the Extensions puzzle icon in the toolbar, select **Cognivue Focus Coach**, and verify:
+3. **Enable Developer Mode**: Toggle the "Developer mode" switch in the top right corner.
+4. **Load Unpacked**: Click the **Load unpacked** button in the top-left corner.
+5. **Select Folder**: Select your extracted `cognivue-extension` folder.
+6. **Pin the Extension**: Click the Extensions puzzle icon in the toolbar, pin **Cognivue Focus Coach**, and verify:
    - The **Active Domain** and **Activity Category** update reactively.
    - The **Detected Mode** changes alongside the dynamic header copy and gradient animations.
    - The **Time Spent** ticks up second-by-second while you focus on the tab.
