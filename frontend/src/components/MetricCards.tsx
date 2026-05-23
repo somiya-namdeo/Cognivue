@@ -141,28 +141,28 @@ export const MetricCards: React.FC<MetricCardsProps> = ({
           <motion.div
             key={i}
             variants={itemVariants}
-            className={`group relative rounded-2xl border border-white/5 bg-slate-950/20 p-4.5 backdrop-blur-md shadow-lg select-none text-left overflow-hidden transition-all duration-300 hover:scale-[1.01] hover:bg-slate-950/30 ${metric.glowColor}`}
+            className={`group relative rounded-2xl border border-white/5 bg-slate-950/20 px-6 py-7 backdrop-blur-md shadow-lg select-none text-left overflow-hidden min-h-[130px] transition-all duration-300 hover:scale-[1.01] hover:bg-slate-950/30 ${metric.glowColor}`}
           >
             {/* Embedded glowing background indicator */}
             <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.01] via-transparent to-transparent pointer-events-none" />
 
-            {/* Top row: Icon */}
-            <div className="flex items-center justify-between">
-              <div className={`flex h-8.5 w-8.5 items-center justify-center rounded-xl border ${metric.iconBg}`}>
-                <Icon className={`h-4.5 w-4.5 ${metric.iconColor}`} />
-              </div>
+            {/* Top row: Icon absolutely positioned */}
+            <div className={`absolute top-4 left-4 flex h-8.5 w-8.5 items-center justify-center rounded-xl border ${metric.iconBg}`}>
+              <Icon className={`h-4.5 w-4.5 ${metric.iconColor}`} />
             </div>
 
-            {/* Middle: Title label */}
-            <span className="mt-4 text-[10px] font-bold text-zinc-550 uppercase tracking-wider block">
-              {metric.title}
-            </span>
+            {/* Content block: shifted down */}
+            <div className="pt-10 flex flex-col">
+              {/* Middle: Title label */}
+              <span className="text-xs font-bold text-zinc-550 uppercase tracking-wider block">
+                {metric.title}
+              </span>
 
-            {/* Bottom: Big bold metric value */}
-            <h4 className="mt-1 text-2xl font-black text-white tracking-tight leading-none animate-fade-in">
-              {metric.value}
-            </h4>
-
+              {/* Bottom: Big bold metric value */}
+              <h4 className="mt-2 text-3xl font-bold text-white tracking-tight leading-none animate-fade-in">
+                {metric.value}
+              </h4>
+            </div>
           </motion.div>
         );
       })}

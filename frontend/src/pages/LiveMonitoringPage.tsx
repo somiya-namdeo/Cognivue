@@ -910,7 +910,6 @@ export const LiveMonitoringPage: React.FC = () => {
         </div>
 
         {/* ================= ADAPTIVE NUDGES SECTION ================= */}
-        {/* TODO: Implement RL-based adaptive productivity optimization later */}
         <div className="w-full flex flex-col gap-4 text-left">
           <div>
             <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-widest block">
@@ -1089,7 +1088,6 @@ export const LiveMonitoringPage: React.FC = () => {
                       <span className="text-[8px] font-bold text-cyan-400 uppercase tracking-widest block mb-1">
                         AI Intelligence Insights
                       </span>
-                      {/* TODO: Implement NLP insight generation procees later */}
                       <p className="text-[11px] font-semibold text-zinc-200 leading-relaxed antialiased">
                         “{summaryData.aiSentence}”
                       </p>

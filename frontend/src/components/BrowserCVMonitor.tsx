@@ -513,46 +513,6 @@ export function BrowserCVMonitor({ isActive, sessionId }: BrowserCVMonitorProps)
         )}
       </div>
 
-      {/* Developer Debug Toggle (Only in DEV mode) */}
-      {import.meta.env.DEV && isActive && (
-        <button 
-          onClick={() => {
-            const newVal = !showDebug;
-            setShowDebug(newVal);
-            localStorage.setItem("debug_cv", newVal.toString());
-          }}
-          className="absolute bottom-4 right-4 z-40 text-[10px] font-mono text-zinc-500 hover:text-white bg-black/50 px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-colors"
-        >
-          Toggle Debug
-        </button>
-      )}
-
-      {/* Debug Metrics HUD */}
-      {isActive && permissionState === 'granted' && modelStatus === 'ready' && showDebug && (
-        <div className="absolute top-4 right-4 z-30 flex flex-col gap-1.5 text-[9px] font-mono text-cyan-400/80 bg-black/60 px-3 py-2 rounded-lg border border-cyan-500/30 backdrop-blur-md w-48 shadow-lg">
-          <div className="text-[10px] font-bold text-white border-b border-cyan-500/20 pb-1 mb-1 tracking-wider">DEV DEBUG OVERLAY</div>
-          <div className="flex justify-between"><span>Tracking</span> <span className="text-yellow-400">{debugUi.trackingQuality} ({Math.round(metricsRef.current.tracking_confidence * 100)}%)</span></div>
-          <div className="flex justify-between"><span>Face</span> <span className={debugUi.face_detected ? "text-green-400" : "text-rose-400"}>{debugUi.face_detected ? 'DETECTED' : 'NONE'}</span></div>
-          <div className="flex justify-between"><span>Backend Attn</span> <span className={metricsRef.current.attention_state === 'Focused' ? 'text-green-400' : 'text-amber-400'}>{metricsRef.current.attention_state}</span></div>
-          <div className="flex justify-between"><span>UI Attention</span> <span className={metricsRef.current.ui_attention_label === 'Away' ? 'text-rose-400' : 'text-cyan-400'}>{metricsRef.current.ui_attention_label}</span></div>
-          <div className="flex justify-between"><span>Backend Posture</span> <span className={debugUi.posture === 'Slouched' ? 'text-amber-400' : 'text-cyan-400'}>{debugUi.posture}</span></div>
-          <div className="flex justify-between"><span>UI Posture</span> <span className={debugUi.uiPostureLabel.includes('Leaning') ? 'text-orange-400' : 'text-cyan-400'}>{debugUi.uiPostureLabel}</span></div>
-          <div className="flex justify-between"><span>Raw Fatigue</span> <span>{debugUi.fatigue}</span></div>
-          <div className="flex justify-between"><span>Smooth Fatigue</span> <span className={debugUi.smoothedFatigue > 60 ? 'text-rose-400' : 'text-cyan-400'}>{debugUi.smoothedFatigue}%</span></div>
-          <div className="flex justify-between"><span>Focus Cap</span> <span className={debugUi.focusCapReason !== 'None' ? 'text-rose-400' : 'text-green-400'}>{debugUi.focusCapReason}</span></div>
-          <div className="w-full h-px bg-cyan-500/20 my-0.5"></div>
-          <div className="flex justify-between"><span>EAR (Current)</span> <span>{debugUi.ear}</span></div>
-          <div className="flex justify-between"><span>EAR (Baseline)</span> <span>{debugUi.baselineEar}</span></div>
-          <div className="flex justify-between"><span>Blink Thr.</span> <span>{(debugUi.baselineEar * 0.72).toFixed(3)}</span></div>
-          <div className="flex justify-between"><span>Blink Count</span> <span>{debugUi.blinkCount}</span></div>
-          <div className="flex justify-between"><span>Blink Rate (Raw)</span> <span>{debugUi.blinkRate}</span></div>
-          <div className="flex justify-between"><span>Blink Rate (Smooth)</span> <span>{debugUi.smoothedBlinkRate}</span></div>
-          <div className="w-full h-px bg-cyan-500/20 my-0.5"></div>
-          <div className="flex justify-between"><span>Face Center Y</span> <span>{debugUi.faceCenterY}</span></div>
-          <div className="flex justify-between"><span>Posture Base</span> <span>{debugUi.postureBaseline}</span></div>
-          <div className="flex justify-between"><span>Posture Delta</span> <span>{(debugUi.faceCenterY - debugUi.postureBaseline).toFixed(3)}</span></div>
-        </div>
-      )}
 
       {/* Posture Warning */}
       {isActive && permissionState === 'granted' && modelStatus === 'ready' && (!postureRef.current.isCalibrated || !earRef.current.isCalibrated) && (

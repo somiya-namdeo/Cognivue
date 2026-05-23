@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Menu, Settings, LogOut } from 'lucide-react';
+import { Bell, Menu, Settings, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUserProfile } from '../services/api';
 
@@ -51,18 +51,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuToggle }) => {
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="relative w-full group hidden sm:block">
-          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-zinc-500 group-focus-within:text-cyan-400 transition-colors" />
-          <input
-            type="text"
-            placeholder="Search sessions, insights..."
-            className="w-full pl-10 pr-12 py-2 rounded-xl border border-white/5 bg-white/[0.02] text-xs text-white placeholder:text-zinc-550 focus:outline-none focus:ring-1 focus:ring-cyan-500/20 focus:border-cyan-400/30 transition-all font-medium"
-          />
-          <div className="absolute right-3 top-2.5 flex items-center gap-0.5 select-none pointer-events-none px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.04] text-[9px] font-bold text-zinc-500 tracking-wider">
-            <span>⌘</span>
-            <span>K</span>
-          </div>
-        </div>
+
       </div>
 
       {/* Profile controls on the Right */}

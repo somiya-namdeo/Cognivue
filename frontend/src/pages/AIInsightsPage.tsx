@@ -221,10 +221,6 @@ export const AIInsightsPage: React.FC = () => {
     ? insightsData.weekly_trends
     : fallbackWeekly;
 
-  // Debug fallback as requested
-  console.log("weekly_trends from API:", insightsData.weekly_trends);
-  console.log("weekly_trends being rendered:", finalWeeklyTrends);
-
   return (
     <DashboardLayout activeItem={activeItem} setActiveItem={setActiveItem}>
       <motion.div 
