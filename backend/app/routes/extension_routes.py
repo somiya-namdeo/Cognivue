@@ -12,7 +12,6 @@ async def sync_activity(activity_data: ActivitySyncRequest):
     Log privacy-first active tab domain, category, mode, and switch count from the Chrome Extension.
     """
     # Keep public for development testing
-    # TODO: Protect this endpoint with JWT before production.
     try:
         activity = await ExtensionService.sync_activity(activity_data)
         return activity
@@ -30,7 +29,6 @@ async def get_user_activity(user_id: UUID):
     Retrieve the latest 20 browser activity records for a specific user profile ordered chronologically descending.
     """
     # Keep public for development testing
-    # TODO: Protect this endpoint with JWT before production.
     try:
         activities = await ExtensionService.get_user_activity(user_id)
         return activities

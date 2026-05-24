@@ -65,8 +65,8 @@ export const DashboardPage: React.FC = () => {
       try {
         const insightsData = await getAIInsights(session.userId);
         setAiInsights(insightsData);
-      } catch (err) {
-        console.warn("Failed to load Advanced AI Insights", err);
+      } catch {
+        // AI insights unavailable; dashboard continues without the widget
       }
       
       try {
@@ -74,11 +74,10 @@ export const DashboardPage: React.FC = () => {
         if (extData && extData.length > 0) {
           setExtActivity(extData[0]);
         }
-      } catch (err) {
-        console.warn("Failed to load Extension Activity", err);
+      } catch {
+        // Extension activity unavailable; dashboard continues without the widget
       }
     } catch (err: any) {
-      console.error("Failed to fetch dashboard analytics:", err);
       setApiError("Unable to load dashboard analytics. Please make sure the backend server is running.");
     } finally {
       setIsLoading(false);

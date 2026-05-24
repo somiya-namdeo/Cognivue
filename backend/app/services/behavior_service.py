@@ -444,10 +444,6 @@ class BehaviorService:
             summary = f"Distraction-heavy profile. Focus drift probability is elevated at {focus_drift_probability}%. Consider workspace isolation."
 
         # 11. TODO: Future ML integration notes
-        # TODO: Train ML model later for behavioral predictions.
-        # TODO: Add RL coaching optimization later.
-        # TODO: Add sequence modeling later.
-        # TODO: Add timestamp/window analysis later (best distraction time window, best productivity time window).
 
         return {
             "user_id": str(user_id),

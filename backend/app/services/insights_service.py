@@ -554,7 +554,6 @@ class InsightsService:
             # user_id, insights, focus_drift_timeline, weekly_trends, productivity_patterns,
             # fatigue_correlation, confidence_level
             try:
-                print(f"[AI Insights] Saving to Supabase for user_id: {user_id}...")
                 logger.info(f"Saving AI insights to Supabase for user_id: {user_id}...")
 
                 # Determine confidence level from session count
@@ -593,15 +592,6 @@ class InsightsService:
                 insight_record.update(extended_record)
 
                 # Log payload summary for verification
-                print(f"[AI Insights] Payload for user {user_id}:")
-                print(f"  session_id    : {latest_session_id}")
-                print(f"  summary       : {overall_summary[:100]}...")
-                print(f"  burnout_risk  : {int(round(burnout_risk, 0))}")
-                print(f"  confidence    : {confidence_level}")
-                print(f"  insights count: {len(insights_list)}")
-                print(f"  rec count     : {len(recommendations_list)}")
-                print(f"  weekly_trends : {len(weekly_trends)} points")
-                print(f"  generated_at  : {generated_time}")
 
                 # Try upsert on user_id (requires migrate to add unique index)
                 # Falls back to plain insert if user_id column doesn't exist yet
@@ -617,15 +607,11 @@ class InsightsService:
                 if res.data:
                     saved_id = res.data[0].get("id", "unknown")
                     saved_summary = str(res.data[0].get("summary", ""))[:60]
-                    print(f"[AI Insights] Saved successfully — id: {saved_id}")
-                    print(f"[AI Insights] Confirmed summary: {saved_summary}...")
                     logger.info(f"AI insights saved successfully for user_id: {user_id}")
                 else:
-                    print(f"[AI Insights] Insert returned no data. Response: {res}")
                     logger.warning(f"AI insights insert returned no data: {res}")
 
             except Exception as db_err:
-                print(f"[AI Insights] Insertion error for user {user_id}: {str(db_err)}")
                 logger.error(f"Insertion error details for ai_insights: {str(db_err)}")
 
             return response_payload

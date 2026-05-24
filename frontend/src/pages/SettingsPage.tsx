@@ -125,7 +125,7 @@ export const SettingsPage: React.FC = () => {
         }
         clearActiveSession();
         navigate('/login');
-      } catch (e) {
+      } catch {
         setIsDeleting(false);
         triggerToast('Failed to delete account. Please try again.');
         pushNotification(
@@ -134,7 +134,6 @@ export const SettingsPage: React.FC = () => {
           'error',
           '/settings'
         );
-        console.error(e);
       }
     }
   };

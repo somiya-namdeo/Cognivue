@@ -12,10 +12,6 @@ async def get_behavior_intelligence(user_id: UUID):
     Fuses browser activity metrics, focus sessions, and cognitive visual attention logs.
     """
     # Keep public for development and Swagger testing
-    # TODO: Protect this endpoint with JWT before production.
-    # TODO: Train ML model later for behavioral predictions.
-    # TODO: Add RL coaching optimization later.
-    # TODO: Add sequence modeling later.
     try:
         intelligence = await BehaviorService.get_behavior_intelligence(user_id)
         return intelligence

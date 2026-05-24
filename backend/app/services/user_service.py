@@ -11,7 +11,6 @@ class UserService:
         """
         Retrieves user profile details from the database (Placeholder).
         """
-        # TODO: Query user details from Supabase 'profiles' table in the future.
         # Example implementation:
         # try:
         #     response = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
@@ -32,7 +31,6 @@ class UserService:
         """
         Updates user profile details in the database (Placeholder).
         """
-        # TODO: Update profiles table in Supabase.
         # Example implementation:
         # try:
         #     update_data = profile_data.model_dump(exclude={"user_id", "email"})

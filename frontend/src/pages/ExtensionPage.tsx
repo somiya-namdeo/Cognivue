@@ -66,8 +66,7 @@ export const ExtensionPage: React.FC = () => {
             }
           }
         })
-        .catch(err => {
-          console.warn("Could not fetch extension activity", err);
+        .catch(() => {
           setFetchError("Could not connect to backend to check extension status.");
         });
     }
@@ -197,7 +196,7 @@ export const ExtensionPage: React.FC = () => {
                   <span className="text-[11px] font-semibold text-zinc-400 tracking-wide font-mono">docs.cognivue.ai/research</span>
                 </div>
 
-                {/* Dummy browser profile */}
+
                 <div className="h-6 w-6 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center">
                   <Clock className="h-3 w-3" />
                 </div>

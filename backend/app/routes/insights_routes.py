@@ -13,7 +13,6 @@ async def generate_insight(insight_data: InsightCreate, current_user: dict = Dep
     """
     Generate AI-driven focus and wellness insights for a tracking session (Placeholder).
     """
-    # TODO: Connect with Insights service / Supabase / AI pipeline
     return {
         "insight_id": "placeholder_insight_id_333",
         "session_id": insight_data.session_id,
@@ -28,7 +27,6 @@ async def get_session_insights(session_id: str, current_user: dict = Depends(get
     """
     Retrieve generated insights for a specific tracking session (Placeholder).
     """
-    # TODO: Connect with Insights service / Supabase Database
     return [
         {
             "insight_id": "placeholder_insight_id_333",
@@ -49,10 +47,6 @@ async def generate_user_insights(user_id: UUID):
     """
     Generate advanced hybrid AI insights (statistical trends, pattern detection, anomalies, composite scoring, and NLP recommendations) for a specific user.
     """
-    # TODO: Protect this endpoint with JWT before production.
-    # TODO: Replace hybrid heuristics with trained ML model later.
-    # TODO: Add NLP generation model later.
-    # TODO: Add RL-based personalized coaching later.
     try:
         insights = await InsightsService.generate_hybrid_insights(user_id)
         return insights

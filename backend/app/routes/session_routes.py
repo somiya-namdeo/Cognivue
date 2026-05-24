@@ -12,7 +12,6 @@ async def start_session(session_data: SessionStartRequest):
     Start a new cognitive tracking session.
     If an active session already exists for the user, it returns that active session.
     """
-    # TODO: Protect this route with auth before production.
     try:
         session = await SessionService.start_session(session_data)
         return session
@@ -29,7 +28,6 @@ async def end_session(session_data: SessionEndRequest):
     """
     End an active cognitive tracking session, calculating duration and updating metrics.
     """
-    # TODO: Protect this route with auth before production.
     try:
         session = await SessionService.end_session(session_data)
         return session
@@ -46,7 +44,6 @@ async def update_session(session_id: UUID, session_data: SessionUpdateRequest):
     """
     Update session title or session_type.
     """
-    # TODO: Protect this route with auth before production.
     try:
         session = await SessionService.update_session(session_id, title=session_data.title, session_type=session_data.session_type)
         return session
@@ -63,7 +60,6 @@ async def delete_session(session_id: UUID):
     """
     Delete a session.
     """
-    # TODO: Protect this route with auth before production.
     try:
         result = await SessionService.delete_session(session_id)
         return result
@@ -80,7 +76,6 @@ async def get_history(user_id: UUID):
     """
     Retrieve session history for a specific user ordered by created_at descending.
     """
-    # TODO: Protect this route with auth before production.
     try:
         sessions = await SessionService.get_user_sessions(user_id)
         return sessions
@@ -97,7 +92,6 @@ async def get_active(user_id: UUID):
     """
     Get the latest active session (where end_time is null) for a specific user.
     """
-    # TODO: Protect this route with auth before production.
     try:
         session = await SessionService.get_active_session(user_id)
         if not session:

@@ -10,7 +10,6 @@ async def get_dashboard_analytics(user_id: UUID):
     """
     Retrieve user-specific focus session and cognitive load statistics for the dashboard.
     """
-    # TODO: Protect this endpoint with JWT before production.
     try:
         analytics = await AnalyticsService.get_dashboard_analytics(user_id)
         return analytics

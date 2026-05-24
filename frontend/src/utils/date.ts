@@ -14,13 +14,12 @@ export const formatLocalDate = (dateInput: string | Date | null | undefined): st
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) return String(dateInput);
     
-    // Future-proof TODO: Later support automatic timezone detection per user locale.
+
     return date.toLocaleString('en-IN', {
       dateStyle: 'medium',
       timeStyle: 'short'
     });
-  } catch (e) {
-    console.error('Error formatting local date:', e);
+  } catch {
     return String(dateInput);
   }
 };
@@ -54,8 +53,7 @@ export const formatDuration = (minutes: number | null | undefined, isEnded: bool
 
     // Standard minutes: whole integer, no decimals (e.g. "2m", "15m")
     return `${Math.round(minutes)}m`;
-  } catch (e) {
-    console.error('Error formatting duration:', e);
+  } catch {
     return '< 1s';
   }
 };
@@ -100,8 +98,7 @@ export const formatRelativeTime = (dateInput: string | Date | null | undefined):
     
     // 1 day or more: fallback to local date format
     return formatLocalDate(dateInput);
-  } catch (e) {
-    console.error('Error formatting relative time:', e);
+  } catch {
     return '';
   }
 };

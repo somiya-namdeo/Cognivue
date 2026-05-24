@@ -163,7 +163,6 @@ class AuthService:
             except Exception as e:
                 logger.warning(f"Could not fetch user email for {user_id}: {e}")
                 
-            print("Recording in deleted_accounts...")
             try:
                 supabase.table("deleted_accounts").insert({
                     "user_id": user_id,
@@ -172,9 +171,7 @@ class AuthService:
                 }).execute()
             except Exception as e:
                 logger.warning(f"Failed to record {user_id} in deleted_accounts: {e}")
-                print(f"Error inserting to deleted_accounts: {e}")
 
-            print("Deleting cognitive metrics...")
             try:
                 sessions_resp = supabase.table("focus_sessions").select("id").eq("user_id", user_id).execute()
                 session_ids = [s["id"] for s in sessions_resp.data] if sessions_resp.data else []
@@ -182,47 +179,35 @@ class AuthService:
                     supabase.table("cognitive_metrics").delete().in_("session_id", session_ids).execute()
             except Exception as e:
                 logger.warning(f"Failed to delete cognitive_metrics for {user_id}: {e}")
-                print(f"Error deleting cognitive metrics: {e}")
             
-            print("Deleting extension activity...")
             try:
                 supabase.table("browser_activity").delete().eq("user_id", user_id).execute()
             except Exception as e:
                 logger.warning(f"Failed to delete browser_activity for {user_id}: {e}")
-                print(f"Error deleting extension activity: {e}")
             
-            print("Deleting insights...")
             try:
                 supabase.table("ai_insights").delete().eq("user_id", user_id).execute()
             except Exception as e:
                 logger.warning(f"Failed to delete ai_insights for {user_id}: {e}")
-                print(f"Error deleting insights: {e}")
             
-            print("Deleting sessions...")
             try:
                 supabase.table("focus_sessions").delete().eq("user_id", user_id).execute()
             except Exception as e:
                 logger.warning(f"Failed to delete focus_sessions for {user_id}: {e}")
-                print(f"Error deleting sessions: {e}")
             
-            print("Deleting profile...")
             try:
                 supabase.table("profiles").delete().eq("id", user_id).execute()
             except Exception as e:
                 logger.warning(f"Failed to delete profile for {user_id}: {e}")
-                print(f"Error deleting profile: {e}")
                 
-            print("Deleting auth user...")
             try:
                 supabase.auth.admin.delete_user(user_id)
             except Exception as e:
                 logger.warning(f"Failed to delete auth user for {user_id}: {e}")
-                print(f"Error deleting auth user: {e}")
             return {"message": "Account successfully deleted"}
             
         except Exception as e:
             error_msg = str(e)
-            print(f"Overall delete error: {error_msg}")
             logger.error(f"Delete account failed: {error_msg}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

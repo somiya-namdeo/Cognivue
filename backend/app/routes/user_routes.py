@@ -10,7 +10,6 @@ async def get_profile(current_user: dict = Depends(get_current_user)):
     """
     Get the profile details of the authenticated user (Placeholder).
     """
-    # TODO: Connect with User service / Supabase Database
     return {
         "user_id": current_user.get("user_id", "placeholder_user_id_123"),
         "email": current_user.get("email", "user@example.com"),
@@ -24,7 +23,6 @@ async def update_profile(profile_data: UserProfile, current_user: dict = Depends
     """
     Update the authenticated user's profile details (Placeholder).
     """
-    # TODO: Connect with User service / Supabase Database
     return profile_data
 
 @router.post("/init/{user_id}", status_code=status.HTTP_200_OK)

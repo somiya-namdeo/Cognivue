@@ -13,7 +13,6 @@ async def add_metric(metric_data: MetricCreateRequest):
     """
     # Later this endpoint will receive data from local CV pipeline and browser extension.
     # Future WebSocket live streaming integration.
-    # TODO: Protect this route with auth before production.
     try:
         metric = await MetricsService.add_metric(metric_data)
         return metric
@@ -31,7 +30,6 @@ async def get_session_metrics(session_id: UUID):
     Retrieve all cognitive metrics logged within a specific focus session ordered chronologically ascending.
     """
     # Future WebSocket live streaming integration.
-    # TODO: Protect this route with auth before production.
     try:
         metrics = await MetricsService.get_session_metrics(session_id)
         return metrics
@@ -49,7 +47,6 @@ async def get_latest_metric(session_id: UUID):
     Retrieve the latest cognitive metric snapshot recorded for a specific session.
     """
     # Future WebSocket live streaming integration.
-    # TODO: Protect this route with auth before production.
     try:
         metric = await MetricsService.get_latest_metric(session_id)
         return metric

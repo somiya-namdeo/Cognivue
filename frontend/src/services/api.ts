@@ -452,8 +452,8 @@ export async function initUser(userId: string): Promise<void> {
       headers: { 'Content-Type': 'application/json' },
     });
     // Silently ignore response; no blocking
-  } catch (e) {
-    console.warn('User init failed', e);
+  } catch {
+    // intentionally ignored — non-blocking init
   }
 }
 

@@ -126,10 +126,8 @@ export const AIInsightsPage: React.FC = () => {
       const session = getLocalSession();
       const userId = session.userId || '00000000-0000-0000-0000-000000000000';
       let data = await getAIInsights(userId);
-      console.log("[AIInsightsPage] Insights data:", data);
       
       const dashboardData = await getDashboardAnalytics(userId);
-      console.log("[AIInsightsPage] Dashboard fallback data:", dashboardData);
 
       // 6. Fallback source: If AI insights are mostly 0 but dashboard has real data, merge it.
       if (
@@ -138,7 +136,6 @@ export const AIInsightsPage: React.FC = () => {
         dashboardData && 
         dashboardData.total_sessions > 0
       ) {
-        console.log("[AIInsightsPage] Applying dashboard fallback for top metric cards");
         data = {
           ...data,
           scores: {
@@ -150,22 +147,6 @@ export const AIInsightsPage: React.FC = () => {
             productivity_momentum: dashboardData.average_productivity || 0,
           }
         };
-
-        if (data.insights.length > 0 && data.insights[0].title.includes("Welcome")) {
-           data.insights[0] = {
-             title: "Cognitive Baseline Generated",
-             summary: `You have completed ${dashboardData.total_sessions} session(s) averaging a Focus Score of ${Math.round(dashboardData.average_focus)}. We are continuously analyzing this baseline.`,
-             category: "focus",
-             severity: "neutral",
-             confidence: "Emerging Pattern",
-             recommendation: "Continue tracking your work blocks.",
-             supporting_metrics: { average_focus: dashboardData.average_focus }
-           };
-        }
-        
-        if (data.summary.includes("Calibration")) {
-          data.summary = `Your cognitive performance shows an average focus of ${Math.round(dashboardData.average_focus)}% across ${dashboardData.total_sessions} tracked sessions. Maintain your environment to sustain these initial baseline measurements.`;
-        }
       }
 
       setInsightsData(data);
@@ -178,7 +159,6 @@ export const AIInsightsPage: React.FC = () => {
         '/ai-insights'
       );
     } catch (err: any) {
-      console.error('Error fetching AI insights:', err);
       setError('Unable to generate cognitive insights. Please ensure the analytics backend is running.');
     } finally {
       setLoading(false);

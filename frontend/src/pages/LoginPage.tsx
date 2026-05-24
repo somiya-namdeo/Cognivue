@@ -25,8 +25,8 @@ export const LoginPage = () => {
       // Initialize user profile (ignore failures)
       try {
         await initUser(data.user_id);
-      } catch (e) {
-        console.warn('User init failed', e);
+      } catch {
+        // intentionally ignored — user init is non-blocking
       }
       // Redirect to dashboard
       navigate('/dashboard');

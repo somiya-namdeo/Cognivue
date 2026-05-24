@@ -86,8 +86,7 @@ export function BrowserCVMonitor({ isActive, sessionId }: BrowserCVMonitorProps)
       }
       setPermissionState('granted');
       initFaceMesh();
-    } catch (err) {
-      console.error("Camera access denied or failed", err);
+    } catch {
       setPermissionState('denied');
     }
   };
@@ -349,8 +348,7 @@ export function BrowserCVMonitor({ isActive, sessionId }: BrowserCVMonitorProps)
       // Start processing loop
       processFrame();
       
-    } catch (err) {
-      console.error("Failed to load MediaPipe FaceMesh", err);
+    } catch {
       setModelStatus('error');
     }
   };

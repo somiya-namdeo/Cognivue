@@ -27,8 +27,8 @@ export const SignUpPage = () => {
       // Initialize user profile (ignore failures)
       try {
         await initUser(signupData.user_id);
-      } catch (e) {
-        console.warn('User init failed', e);
+      } catch {
+        // intentionally ignored — user init is non-blocking
       }
       setSuccess('Account created successfully! Redirecting to login...');
       setTimeout(() => {

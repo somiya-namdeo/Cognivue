@@ -147,8 +147,8 @@ export const LiveMonitoringPage: React.FC = () => {
           if (extData && extData.length > 0) {
             setExtensionActivity(extData[0]);
           }
-        } catch (e) {
-          console.warn("Could not fetch initial extension activity");
+        } catch {
+          // widget degrades gracefully
         }
         
         if (activeSess && activeSess.id) {
@@ -196,8 +196,7 @@ export const LiveMonitoringPage: React.FC = () => {
               setFocusStream([]);
               setStreamStatus('Waiting');
             }
-          } catch (err) {
-            console.error('Failed to restore session metrics:', err);
+          } catch {
             setFocusStream([]);
             setStreamStatus('Waiting');
           }
@@ -206,7 +205,6 @@ export const LiveMonitoringPage: React.FC = () => {
         if (err.message && err.message.includes('No active session found')) {
           localStorage.removeItem('active_session_id');
         } else {
-          console.error('Error fetching active session:', err);
           setErrorMessage('FastAPI backend service is offline. Please start your backend server.');
         }
       } finally {
@@ -307,7 +305,6 @@ export const LiveMonitoringPage: React.FC = () => {
           setErrorMessage(null); // Clear error if just waiting for data
         }
       } catch (err: any) {
-        console.error('Failed to fetch latest metric:', err);
         // If 404, treat as waiting; otherwise offline
         const isNotFound = err?.message?.includes('404') || err?.message?.toLowerCase()?.includes('not found');
         if (!latestMetricRef.current || isNotFound) {
@@ -362,7 +359,6 @@ export const LiveMonitoringPage: React.FC = () => {
       // Reset area chart baseline with no fake data
       setFocusStream([]);
     } catch (err: any) {
-      console.error('Failed to start session:', err);
       setErrorMessage(err.message || 'Failed to start focus session. FastAPI backend offline.');
     } finally {
       setIsLoading(false);
@@ -375,9 +371,7 @@ export const LiveMonitoringPage: React.FC = () => {
     setIsLoading(true);
     setErrorMessage(null);
 
-      // We will calculate final session productivity after parsing metrics, 
-      // but we need a placeholder to send to the backend end_session if we want.
-      // Wait, endSession takes productivity_score. We should calculate it FIRST!
+
       
       const finalMetrics = sessionMetrics.length > 0 ? sessionMetrics : [{focus_score: 85, attention_state: 'Focused', gaze_status: 'On Screen', cognitive_load: 50, fatigue_score: 20}];
       const totalSamples = finalMetrics.length;
@@ -507,7 +501,6 @@ export const LiveMonitoringPage: React.FC = () => {
       setShowSummaryModal(true);
       pushNotification('Session Completed', `Deep work session completed with a focus score of ${avgFocus}%.`, 'success', '/sessions');
     } catch (err: any) {
-      console.error('Failed to end session cleanly:', err);
       setErrorMessage(err.message || 'Failed to end session cleanly. Backend service offline.');
       localStorage.removeItem('active_session_id');
       localStorage.removeItem('active_session_start');

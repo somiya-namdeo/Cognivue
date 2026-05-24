@@ -81,7 +81,6 @@ export const SessionsPage: React.FC = () => {
       const data = await getSessionHistory(userId);
       setSessions(data);
     } catch (err: any) {
-      console.error('Error fetching sessions:', err);
       setError(err.message || 'Failed to fetch session history. Please check if the backend is online.');
     } finally {
       setIsLoading(false);
@@ -239,8 +238,7 @@ export const SessionsPage: React.FC = () => {
       const updated = await updateSession(sessionToRename.id, renameTitle, renameType);
       setSessions(sessions.map(s => s.id === updated.id ? updated : s));
       setSessionToRename(null);
-    } catch (err: any) {
-      console.error(err);
+    } catch {
       setError('Failed to rename session.');
     } finally {
       setIsLoading(false);
@@ -254,8 +252,7 @@ export const SessionsPage: React.FC = () => {
       await deleteSession(sessionToDelete.id);
       setSessions(sessions.filter(s => s.id !== sessionToDelete.id));
       setSessionToDelete(null);
-    } catch (err: any) {
-      console.error(err);
+    } catch {
       setError('Failed to delete session.');
     } finally {
       setIsLoading(false);
