@@ -20,10 +20,11 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
+    "https://cognivue-kappa.vercel.app",
     "https://cognivue-pvyiag7et-somiya-namdeo-s-projects.vercel.app",
 ]
 
-# Add dynamic frontend URL from environment if available
+
 try:
     frontend_url = settings.FRONTEND_URL.strip()
 
