@@ -69,7 +69,7 @@ export const SessionsTable: React.FC<SessionsTableProps> = ({ sessions }) => {
             No focus sessions logged yet.
           </div>
         ) : (
-          <table className="w-full min-w-[650px] border-collapse text-left text-xs text-zinc-300">
+          <table className="w-full min-w-[650px] border-collapse text-left text-xs text-zinc-400">
             <thead>
               <tr className="border-b border-white/[0.02]">
                 <th className="pb-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 select-none">

@@ -21,7 +21,7 @@ class FatigueCorrelationPoint(BaseModel):
     fatigue: int
 
 class ProductivityPatternPoint(BaseModel):
-    domain: str
+    category: str
     score: int
     full_mark: int = 100
 

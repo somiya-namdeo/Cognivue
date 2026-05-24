@@ -2,6 +2,7 @@ from app.schemas.auth_schema import UserSignup, UserLogin
 from app.database import supabase
 from fastapi import HTTPException, status
 import logging
+from datetime import datetime
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -87,6 +88,19 @@ class AuthService:
             )
             
         try:
+            # Check if email is in deleted_accounts before hitting Supabase Auth
+            try:
+                del_resp = supabase.table("deleted_accounts").select("email").eq("email", login_data.email).execute()
+                if del_resp.data and len(del_resp.data) > 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="This account has been deleted and cannot be used again."
+                    )
+            except HTTPException as he:
+                raise he
+            except Exception as e:
+                pass # Table might not exist or error
+
             # Sign in with password using Supabase Auth
             auth_response = supabase.auth.sign_in_with_password({
                 "email": login_data.email,
@@ -126,4 +140,91 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Login failed: {error_msg}"
+            )
+
+    @staticmethod
+    async def delete_user_account(user_id: str) -> dict:
+        """
+        Deletes or soft-deletes a user account and wipes their related data.
+        Deletion order: cognitive_metrics -> browser_activity -> ai_insights -> focus_sessions -> profile -> auth
+        """
+        if supabase is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database/Auth service is currently unavailable. Supabase is not initialized."
+            )
+            
+        try:
+            # Fetch user email before deletion for the blocklist
+            user_email = "unknown"
+            try:
+                user_info = supabase.auth.admin.get_user_by_id(user_id)
+                user_email = user_info.user.email
+            except Exception as e:
+                logger.warning(f"Could not fetch user email for {user_id}: {e}")
+                
+            print("Recording in deleted_accounts...")
+            try:
+                supabase.table("deleted_accounts").insert({
+                    "user_id": user_id,
+                    "email": user_email,
+                    "deleted_at": datetime.utcnow().isoformat()
+                }).execute()
+            except Exception as e:
+                logger.warning(f"Failed to record {user_id} in deleted_accounts: {e}")
+                print(f"Error inserting to deleted_accounts: {e}")
+
+            print("Deleting cognitive metrics...")
+            try:
+                sessions_resp = supabase.table("focus_sessions").select("id").eq("user_id", user_id).execute()
+                session_ids = [s["id"] for s in sessions_resp.data] if sessions_resp.data else []
+                if session_ids:
+                    supabase.table("cognitive_metrics").delete().in_("session_id", session_ids).execute()
+            except Exception as e:
+                logger.warning(f"Failed to delete cognitive_metrics for {user_id}: {e}")
+                print(f"Error deleting cognitive metrics: {e}")
+            
+            print("Deleting extension activity...")
+            try:
+                supabase.table("browser_activity").delete().eq("user_id", user_id).execute()
+            except Exception as e:
+                logger.warning(f"Failed to delete browser_activity for {user_id}: {e}")
+                print(f"Error deleting extension activity: {e}")
+            
+            print("Deleting insights...")
+            try:
+                supabase.table("ai_insights").delete().eq("user_id", user_id).execute()
+            except Exception as e:
+                logger.warning(f"Failed to delete ai_insights for {user_id}: {e}")
+                print(f"Error deleting insights: {e}")
+            
+            print("Deleting sessions...")
+            try:
+                supabase.table("focus_sessions").delete().eq("user_id", user_id).execute()
+            except Exception as e:
+                logger.warning(f"Failed to delete focus_sessions for {user_id}: {e}")
+                print(f"Error deleting sessions: {e}")
+            
+            print("Deleting profile...")
+            try:
+                supabase.table("profiles").delete().eq("id", user_id).execute()
+            except Exception as e:
+                logger.warning(f"Failed to delete profile for {user_id}: {e}")
+                print(f"Error deleting profile: {e}")
+                
+            print("Deleting auth user...")
+            try:
+                supabase.auth.admin.delete_user(user_id)
+            except Exception as e:
+                logger.warning(f"Failed to delete auth user for {user_id}: {e}")
+                print(f"Error deleting auth user: {e}")
+            return {"message": "Account successfully deleted"}
+            
+        except Exception as e:
+            error_msg = str(e)
+            print(f"Overall delete error: {error_msg}")
+            logger.error(f"Delete account failed: {error_msg}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Account deletion failed: {error_msg}"
             )

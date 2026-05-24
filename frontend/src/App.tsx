@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Brain } from 'lucide-react';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { SignUpPage } from './pages/SignUpPage';
@@ -41,30 +40,15 @@ function App() {
 
             <div className="flex flex-col items-center gap-6 relative z-10">
               {/* Outer pulsing neon boundary */}
-              <motion.div 
-                animate={{ 
-                  scale: [1, 1.04, 1],
-                  boxShadow: [
-                    '0 0 20px rgba(6,182,212,0.1)',
-                    '0 0 35px rgba(6,182,212,0.25)',
-                    '0 0 20px rgba(6,182,212,0.1)'
-                  ]
-                }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-                className="h-20 w-20 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-cyan-500/25 flex items-center justify-center text-cyan-400"
-              >
-                <Brain className="h-9 w-9 text-cyan-400 animate-pulse" />
-              </motion.div>
-
               <div className="flex flex-col items-center gap-2">
-                <motion.span 
+                <motion.img 
+                  src="/logo.png" 
+                  alt="Cognivue Logo" 
                   initial={{ opacity: 0.3 }}
                   animate={{ opacity: [0.3, 1, 0.3] }}
                   transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                  className="font-sans text-xl font-bold tracking-[0.1em] text-white"
-                >
-                  Cognivue
-                </motion.span>
+                  className="h-14 w-auto drop-shadow-[0_0_15px_rgba(6,182,212,0.15)] mb-4"
+                />
                 <motion.span 
                   initial={{ opacity: 0.4 }}
                   animate={{ opacity: [0.4, 0.8, 0.4] }}

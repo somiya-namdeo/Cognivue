@@ -7,7 +7,7 @@ export const NotFoundPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="relative min-h-screen w-full bg-transparent text-zinc-300 overflow-hidden flex flex-col items-center justify-center p-6 select-none">
+    <div className="relative min-h-screen w-full bg-transparent text-zinc-400 overflow-hidden flex flex-col items-center justify-center p-6 select-none">
       
       {/* ================= BACKGROUND SYSTEM ================= */}
       {/* 1. Base Grid Overlay */}
@@ -52,7 +52,7 @@ export const NotFoundPage: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="max-w-md w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.5)] text-center relative z-10 flex flex-col items-center gap-6"
+        className="max-w-md w-full rounded-2xl border border-white/10 bg-slate-950/20 p-8 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.5)] text-center relative z-10 flex flex-col items-center gap-6"
       >
         
         {/* Glowing Brain Scanner Icon with active warning alerts */}
@@ -84,9 +84,9 @@ export const NotFoundPage: React.FC = () => {
             <Terminal className="h-3.5 w-3.5" />
             <span className="font-bold uppercase tracking-wider">Cognivue Terminal</span>
           </div>
-          <div><span className="text-zinc-600">&gt;</span> request_uri: <span className="text-rose-450">{window.location.pathname}</span></div>
-          <div><span className="text-zinc-600">&gt;</span> error_code: <span className="text-amber-400">PATH_NOT_RESOLVED_404</span></div>
-          <div><span className="text-zinc-600">&gt;</span> telemetry: <span className="text-emerald-400">online_inference_valid</span></div>
+          <div><span className="text-zinc-500">&gt;</span> request_uri: <span className="text-rose-450">{window.location.pathname}</span></div>
+          <div><span className="text-zinc-500">&gt;</span> error_code: <span className="text-amber-400">PATH_NOT_RESOLVED_404</span></div>
+          <div><span className="text-zinc-500">&gt;</span> telemetry: <span className="text-emerald-400">online_inference_valid</span></div>
         </div>
 
         {/* Return to home button */}

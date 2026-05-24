@@ -1,7 +1,10 @@
-import { motion } from 'framer-motion';
-import { CheckCircle2, ArrowRight, Brain, Eye, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle2, ArrowRight, Eye, Zap, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export const ExtensionSection = () => {
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const bulletFeatures = [
     'Active tab awareness',
     'Real-time focus badge',
@@ -34,13 +37,16 @@ export const ExtensionSection = () => {
             </p>
 
             {/* Button */}
-            <a 
-              href="#preview"
+            <button 
+              onClick={(e) => {
+                e.preventDefault();
+                setShowPreviewModal(true);
+              }}
               className="mt-8 group inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-zinc-950 transition-all hover:bg-zinc-100 hover:scale-[1.01] active:scale-[0.99] select-none shadow-sm"
             >
               Preview extension
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 duration-200" />
-            </a>
+            </button>
 
             {/* Bullet Checklist */}
             <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -66,9 +72,8 @@ export const ExtensionSection = () => {
               
               {/* Pop-up Header */}
               <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
-                <div className="flex items-center gap-1.5">
-                  <Brain className="h-4 w-4 text-cyan-400" />
-                  <span className="text-xs font-extrabold text-white tracking-tight">Cognivue</span>
+                <div className="flex items-center">
+                  <img src="/logo.png" alt="Cognivue Logo" className="h-6 w-auto drop-shadow-[0_0_15px_rgba(6,182,212,0.15)]" />
                 </div>
                 <span className="text-[10px] text-zinc-500 font-medium">v2.4</span>
               </div>
@@ -138,6 +143,83 @@ export const ExtensionSection = () => {
         </div>
       </div>
 
+      {/* Modal Preview */}
+      <AnimatePresence>
+        {showPreviewModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowPreviewModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0a0a0f] p-6 shadow-2xl overflow-hidden"
+            >
+              {/* Decorative background glow */}
+              <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-cyan-500/10 blur-[80px] pointer-events-none" />
+              <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 rounded-full bg-violet-500/10 blur-[80px] pointer-events-none" />
+
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-4 mb-6 relative z-10">
+                <div className="flex items-center gap-2">
+                  <img src="/logo.png" alt="Cognivue Logo" className="h-5 w-auto" />
+                  <h3 className="text-lg font-bold text-white tracking-tight">Extension Preview</h3>
+                </div>
+                <button
+                  onClick={() => setShowPreviewModal(false)}
+                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 text-left relative z-10">
+                <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-cyan-400">
+                    <Eye className="h-4 w-4" />
+                    <span className="text-sm font-bold">Active Tab Awareness</span>
+                  </div>
+                  <p className="text-sm text-zinc-400">Monitors active tabs seamlessly to ensure context-aware tracking during focus sessions.</p>
+                </div>
+                <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-amber-500">
+                    <Zap className="h-4 w-4" />
+                    <span className="text-sm font-bold">Distraction Detection</span>
+                  </div>
+                  <p className="text-sm text-zinc-400">Instantly flags non-productive tabs or apps and nudges you back into deep work.</p>
+                </div>
+                <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="text-sm font-bold">Local Privacy Tracking</span>
+                  </div>
+                  <p className="text-sm text-zinc-400">All data processing happens entirely on your device. Your data never leaves your browser.</p>
+                </div>
+                <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-violet-400">
+                    <ArrowRight className="h-4 w-4" />
+                    <span className="text-sm font-bold">Downloadable Extension</span>
+                  </div>
+                  <p className="text-sm text-zinc-400">Available from your Cognivue Extension page after login. Download the Cognivue extension package and install it manually in Chrome.</p>
+                </div>
+              </div>
+
+              <div className="mt-8 flex justify-end gap-3 relative z-10">
+                <Link
+                  to="/signup"
+                  className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-zinc-950 hover:bg-zinc-200 transition-colors inline-flex items-center justify-center cursor-pointer"
+                >
+                  Get the Extension
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </section>
   );
 };

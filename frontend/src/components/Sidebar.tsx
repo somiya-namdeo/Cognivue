@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  Brain, 
   LayoutDashboard, 
   Activity, 
   Sparkles, 
@@ -10,7 +9,8 @@ import {
   Settings, 
   LogOut 
 } from 'lucide-react';
-import { clearActiveSession } from '../services/api';
+import { clearActiveSession, getLocalSession, getActiveSession, getSessionMetrics, getExtensionActivity } from '../services/api';
+import { pushNotification } from '../services/notifications';
 
 interface SidebarProps {
   activeItem: string;
@@ -26,6 +26,124 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClose
 }) => {
   const navigate = useNavigate();
+
+  const [sysState, setSysState] = useState<'idle' | 'initializing' | 'live' | 'paused' | 'disconnected'>('idle');
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkStatus = async () => {
+      const session = getLocalSession();
+      if (!session.userId) {
+         if (isMounted) setSysState('disconnected');
+         return;
+      }
+
+      try {
+        const activeSess = await getActiveSession(session.userId).catch(() => null);
+        if (!activeSess || !activeSess.id || activeSess.end_time) {
+           const extData = await getExtensionActivity(session.userId).catch(() => null);
+           const hasExtension = extData && extData.length > 0;
+           if (isMounted) {
+             setSysState(hasExtension ? 'idle' : 'disconnected');
+             if (!hasExtension) {
+               pushNotification('Extension Disconnected', 'Cannot detect the browser extension.', 'error', '/extension');
+             }
+           }
+           return;
+        }
+
+        const metrics = await getSessionMetrics(activeSess.id).catch(() => null);
+        if (!metrics || metrics.length === 0) {
+           if (isMounted) setSysState('initializing');
+           return;
+        }
+
+        const latestMetric = metrics[metrics.length - 1];
+        const lastTime = new Date(latestMetric.recorded_at).getTime();
+        const now = Date.now();
+        const diffSeconds = (now - lastTime) / 1000;
+
+        if (diffSeconds > 15) {
+           if (isMounted) {
+             setSysState('paused');
+             pushNotification('Telemetry Paused', 'No metrics received for over 15 seconds.', 'warning', '/live-monitoring');
+           }
+        } else {
+           if (isMounted) setSysState('live');
+        }
+      } catch (err) {
+        if (isMounted) {
+          setSysState('disconnected');
+          pushNotification('Extension Disconnected', 'Cannot reach local background script.', 'error', '/extension');
+        }
+      }
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const getStatusConfig = () => {
+    switch (sysState) {
+      case 'live':
+        return {
+          text: 'Live cognitive telemetry streaming.',
+          dotColor: 'bg-cyan-400',
+          dotShadow: 'shadow-[0_0_8px_rgba(34,211,238,0.5)]',
+          barColor: 'from-violet-500 to-cyan-400',
+          barAnim: 'animate-pulse',
+          barOpacity: 'opacity-50',
+          title: 'Browser CV Active'
+        };
+      case 'initializing':
+        return {
+          text: 'Initializing cognitive telemetry...',
+          dotColor: 'bg-amber-400',
+          dotShadow: 'shadow-[0_0_8px_rgba(251,191,36,0.5)]',
+          barColor: 'from-amber-500/50 to-amber-400',
+          barAnim: 'animate-pulse',
+          barOpacity: 'opacity-70',
+          title: 'Connecting Stream...'
+        };
+      case 'paused':
+        return {
+          text: 'Telemetry temporarily paused.',
+          dotColor: 'bg-amber-500',
+          dotShadow: 'shadow-none',
+          barColor: 'from-amber-600/30 to-amber-500/30',
+          barAnim: '',
+          barOpacity: 'opacity-30',
+          title: 'Stream Stalled'
+        };
+      case 'disconnected':
+        return {
+          text: 'Browser extension offline.',
+          dotColor: 'bg-red-500',
+          dotShadow: 'shadow-[0_0_8px_rgba(239,68,68,0.5)]',
+          barColor: 'from-red-600/20 to-red-500/20',
+          barAnim: '',
+          barOpacity: 'opacity-0 hidden',
+          title: 'System Offline'
+        };
+      case 'idle':
+      default:
+        return {
+          text: 'Idle — start a monitoring session to begin telemetry tracking.',
+          dotColor: 'bg-zinc-500',
+          dotShadow: 'shadow-none',
+          barColor: 'from-zinc-600/10 to-zinc-500/10',
+          barAnim: '',
+          barOpacity: 'opacity-0 hidden',
+          title: 'System Standby'
+        };
+    }
+  };
+
+  const statusConfig = getStatusConfig();
 
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard },
@@ -59,11 +177,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       
       {/* Top Brand Logo */}
       <div className="flex flex-col gap-8">
-        <Link to="/" className="inline-flex items-center gap-2.5 px-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-violet-500/20 border border-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.15)]">
-            <Brain className="h-4.5 w-4.5 text-cyan-400 animate-pulse" />
-          </div>
-          <span className="font-sans text-lg font-bold tracking-tight text-white select-none">Cognivue</span>
+        <Link to="/" className="inline-flex items-center px-2">
+          <img src="/logo.png" alt="Cognivue Logo" className="h-10 w-auto drop-shadow-[0_0_15px_rgba(6,182,212,0.15)]" />
         </Link>
 
         {/* Navigation list */}
@@ -101,14 +216,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex flex-col gap-6">
         
         {/* Local inference status card */}
-        <div className="rounded-2xl border border-white/[0.04] bg-[#03030b]/40 p-4 flex flex-col gap-3 backdrop-blur-md relative overflow-hidden">
+        <div className="rounded-2xl border border-white/[0.04] bg-[#03030b]/40 p-4 flex flex-col gap-3 backdrop-blur-md relative overflow-hidden transition-all duration-500">
           <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/2 via-violet-500/2 to-transparent pointer-events-none" />
           
           <div className="flex flex-col gap-0.5 select-none text-left">
             <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">System Status</span>
-            <span className="text-xs font-bold text-white flex items-center gap-1.5 mt-0.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
-              Browser CV Active
+            <span className="text-xs font-bold text-white flex items-center gap-1.5 mt-0.5 transition-colors duration-300">
+              <span className={`h-1.5 w-1.5 rounded-full ${statusConfig.dotColor} ${statusConfig.dotShadow} transition-all duration-300`} />
+              {statusConfig.title}
             </span>
             <span className="text-[10.5px] font-medium text-zinc-400 mt-1 leading-tight">
               Privacy-first on-device analysis
@@ -117,13 +232,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Model status bar */}
           <div className="w-full">
-            <div className="h-1 w-full rounded-full bg-white/[0.04] overflow-hidden">
+            <div className={`h-1 w-full rounded-full bg-white/[0.04] overflow-hidden ${sysState === 'disconnected' || sysState === 'idle' ? 'hidden' : ''}`}>
               <div 
-                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 w-full opacity-50 animate-pulse"
+                className={`h-full rounded-full bg-gradient-to-r ${statusConfig.barColor} w-full ${statusConfig.barOpacity} ${statusConfig.barAnim} transition-all duration-500`}
               />
             </div>
-            <span className="text-[10px] font-medium text-zinc-500 mt-1.5 block text-left">
-              Waiting for session data...
+            <span className={`text-[10px] font-medium mt-1.5 block text-left transition-colors duration-300 ${sysState === 'disconnected' ? 'text-red-400/80' : sysState === 'paused' || sysState === 'initializing' ? 'text-amber-400/80' : 'text-zinc-500'}`}>
+              {statusConfig.text}
             </span>
           </div>
         </div>

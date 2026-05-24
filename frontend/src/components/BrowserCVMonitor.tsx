@@ -15,26 +15,7 @@ export function BrowserCVMonitor({ isActive, sessionId }: BrowserCVMonitorProps)
   
   const [permissionState, setPermissionState] = useState<'prompt' | 'granted' | 'denied'>('prompt');
   const [modelStatus, setModelStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [showDebug, setShowDebug] = useState(() => import.meta.env.DEV && localStorage.getItem("debug_cv") === "true");
   const [cvStreamStatus, setCvStreamStatus] = useState<'Waiting' | 'Connected' | 'Offline' | 'Error'>('Waiting');
-  
-  // Debug UI State (throttled updates to avoid 60FPS re-renders)
-  const [debugUi, setDebugUi] = useState({
-    face_detected: false,
-    posture: 'Unknown',
-    fatigue: 10,
-    smoothedFatigue: 10,
-    ear: 0,
-    baselineEar: 0,
-    blinkRate: 0,
-    smoothedBlinkRate: 0,
-    blinkCount: 0,
-    faceCenterY: 0,
-    postureBaseline: 0,
-    uiPostureLabel: 'Unknown',
-    focusCapReason: 'None',
-    trackingQuality: 'Waiting'
-  });
 
   // CV Metric States
   const metricsRef = useRef({
@@ -432,41 +413,7 @@ export function BrowserCVMonitor({ isActive, sessionId }: BrowserCVMonitorProps)
     };
   }, [isActive, sessionId, permissionState, modelStatus]);
 
-  // Debug UI Polling (Updates DOM every 500ms)
-  useEffect(() => {
-    let uiInterval: ReturnType<typeof setInterval>;
-    if (isActive && modelStatus === 'ready') {
-      uiInterval = setInterval(() => {
-        let quality = 'Good';
-        if (!metricsRef.current.face_detected) quality = 'Poor (No Face)';
-        else if (!postureRef.current.isCalibrated || !earRef.current.isCalibrated) quality = 'Calibrating...';
-        else if (metricsRef.current.tracking_confidence > 0.85) quality = 'Excellent';
-        else if (metricsRef.current.tracking_confidence > 0.6) quality = 'Good';
-        else if (metricsRef.current.tracking_confidence > 0.35) quality = 'Partial';
-        else quality = 'Poor';
-
-        setDebugUi({
-          face_detected: metricsRef.current.face_detected,
-          posture: metricsRef.current.posture_status,
-          fatigue: Number(metricsRef.current.raw_fatigue.toFixed(1)),
-          smoothedFatigue: Number(metricsRef.current.fatigue_score.toFixed(1)),
-          ear: Number(metricsRef.current.eye_open_ratio.toFixed(3)),
-          baselineEar: Number(earRef.current.baselineEar.toFixed(3)),
-          blinkRate: metricsRef.current.blink_rate,
-          smoothedBlinkRate: Number(metricsRef.current.smoothed_blink_rate.toFixed(1)),
-          blinkCount: metricsRef.current.blink_count,
-          faceCenterY: Number(metricsRef.current.face_center_y.toFixed(3)),
-          postureBaseline: Number(postureRef.current.baselineY.toFixed(3)),
-          uiPostureLabel: metricsRef.current.ui_posture_label,
-          focusCapReason: metricsRef.current.focus_cap_reason,
-          trackingQuality: quality
-        });
-      }, 500);
-    }
-    return () => {
-      if (uiInterval) clearInterval(uiInterval);
-    };
-  }, [isActive, modelStatus]);
+  // (Debug UI polling removed to fix unused TS errors)
 
   // Rendering Logic
   return (
@@ -532,8 +479,8 @@ export function BrowserCVMonitor({ isActive, sessionId }: BrowserCVMonitorProps)
       <div className="relative z-20 flex flex-col items-center text-center p-6">
         {!isActive && (
           <>
-            <VideoOff className="w-12 h-12 text-zinc-600 mb-4" />
-            <h3 className="text-zinc-300 font-semibold text-sm">Camera Offline</h3>
+            <VideoOff className="w-12 h-12 text-zinc-500 mb-4" />
+            <h3 className="text-zinc-400 font-semibold text-sm">Camera Offline</h3>
             <p className="text-zinc-500 text-xs mt-1 max-w-[200px]">Click 'Start Session' to begin live CV monitoring.</p>
           </>
         )}

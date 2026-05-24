@@ -21,7 +21,7 @@ const CapabilityCard = ({
 }: CapabilityCardProps) => {
   return (
     <motion.div
-      className="glass-card flex flex-col justify-between items-start rounded-2xl p-6 border border-white/[0.03] bg-slate-950/10 shadow-lg hover:-translate-y-1 hover:border-cyan-500/20 hover:bg-slate-900/15 hover:shadow-[0_12px_30px_rgba(6,182,212,0.03)] transition-all duration-300"
+      className="bg-slate-950/20 flex flex-col justify-between items-start rounded-2xl p-6 border border-white/[0.03] bg-slate-950/10 shadow-lg hover:-translate-y-1 hover:border-cyan-500/20 hover:bg-slate-900/15 hover:shadow-[0_12px_30px_rgba(6,182,212,0.03)] transition-all duration-300"
       initial={{ opacity: 0, y: 15 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-100px' }}

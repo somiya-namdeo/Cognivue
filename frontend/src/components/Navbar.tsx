@@ -1,24 +1,18 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Brain, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <nav className="sticky top-0 z-50 w-full glass-panel border-b border-zinc-900 bg-darkBg/60 backdrop-blur-xl">
+    <nav className="sticky top-0 z-50 w-full glass-panel border-b border-white/10 bg-white/[0.04] backdrop-blur-xl">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           
           {/* Logo Section */}
-          <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-violet-500/20 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.15)]">
-              <Brain className="h-4.5 w-4.5 text-cyan-400" />
-              <div className="absolute inset-0 rounded-lg bg-cyan-400/10 blur-[4px] pointer-events-none" />
-            </div>
-            <span className="font-sans text-xl font-bold tracking-tight text-white select-none">
-              Cognivue
-            </span>
+          <Link to="/" className="flex items-center hover:opacity-90 transition-opacity">
+            <img src="/logo.png" alt="Cognivue Logo" className="h-9 w-auto drop-shadow-[0_0_15px_rgba(6,182,212,0.15)]" />
           </Link>
 
           {/* Center Links - Desktop */}
@@ -62,7 +56,7 @@ export const Navbar = () => {
 
       {/* Mobile Drawer */}
       {isOpen && (
-        <div className="md:hidden border-b border-zinc-900 bg-darkBg/95 backdrop-blur-2xl">
+        <div className="md:hidden border-b border-white/10 bg-slate-950/95 backdrop-blur-2xl">
           <div className="space-y-1 px-4 py-4 pb-6">
             <a
               href="#features"

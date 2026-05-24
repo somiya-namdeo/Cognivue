@@ -62,3 +62,19 @@ async def generate_user_insights(user_id: UUID):
             detail=f"An unexpected error occurred while generating AI insights: {str(e)}"
         )
 
+@router.get("/latest/{user_id}", status_code=status.HTTP_200_OK)
+async def get_latest_insight(user_id: UUID):
+    """
+    Retrieve the latest generated insights for a user from the database.
+    """
+    from app.database import supabase
+    if supabase is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    try:
+        resp = supabase.table("ai_insights").select("*").eq("user_id", str(user_id)).order("created_at", desc=True).limit(1).execute()
+        if not resp.data:
+            return None
+        return resp.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

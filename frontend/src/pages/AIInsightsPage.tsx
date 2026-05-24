@@ -205,7 +205,7 @@ export const AIInsightsPage: React.FC = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-5">
             {[...Array(5)].map((_, idx) => (
-              <div key={idx} className="rounded-2xl border border-white/5 bg-slate-950/20 p-5">
+              <div key={idx} className="rounded-2xl border border-white/10 bg-slate-950/20 p-5">
                 <div className="h-3 bg-white/10 rounded w-2/3 mb-4"></div>
                 <div className="h-8 bg-white/15 rounded w-1/2 mb-4"></div>
                 <div className="h-1.5 bg-white/5 rounded w-full mb-3"></div>
@@ -241,7 +241,7 @@ export const AIInsightsPage: React.FC = () => {
   if (!insightsData) {
     return (
       <DashboardLayout activeItem={activeItem} setActiveItem={setActiveItem}>
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center select-none p-8 rounded-2xl border border-white/5 bg-white/[0.01] backdrop-blur-md max-w-2xl mx-auto my-12">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center select-none p-8 rounded-2xl border border-white/10 bg-slate-950 backdrop-blur-md max-w-2xl mx-auto my-12">
           <Activity className="h-16 w-16 text-zinc-500 animate-pulse mb-6" />
           <h3 className="text-[26px] font-semibold text-white tracking-tight leading-tight mb-3">Loading Analytics</h3>
           <p className="text-[15px] leading-[1.6] text-white/50 font-normal antialiased">
@@ -299,13 +299,13 @@ export const AIInsightsPage: React.FC = () => {
         {/* ================= 1. COGNITIVE SUMMARY CARDS ================= */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-5 gap-5 mt-2">
           {cognitiveScores.map((score, sIdx) => (
-            <div key={sIdx} className="rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md select-none text-left flex flex-col justify-between shadow-[0_4px_30px_rgba(0,0,0,0.4)] hover:border-white/10 transition-all duration-300">
+            <div key={sIdx} className="rounded-2xl border border-white/10 bg-slate-950/20 p-5 backdrop-blur-md select-none text-left flex flex-col justify-between shadow-[0_4px_30px_rgba(0,0,0,0.4)] hover:border-white/10 transition-all duration-300">
               <div>
                 <span className="text-[11px] uppercase tracking-[0.15em] text-white/45 block">{score.name}</span>
                 <span className="text-[32px] font-extrabold tracking-tight text-white mt-1 block leading-none antialiased"><CountUp end={score.value} duration={2.5}/>%</span>
               </div>
               <div className="mt-4">
-                <div className="h-1.5 w-full rounded-full bg-white/[0.03] overflow-hidden relative">
+                <div className="h-1.5 w-full rounded-full bg-border-color overflow-hidden relative">
                   <div 
                     className={`h-full rounded-full bg-gradient-to-r ${score.gradient}`}
                     style={{ width: `${score.value}%` }}
@@ -320,11 +320,11 @@ export const AIInsightsPage: React.FC = () => {
         {/* ================= 2. FOCUS DRIFT ANALYSIS & NLP SUMMARY ================= */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           <motion.div variants={itemVariants} className="lg:col-span-8 w-full flex">
-            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md flex flex-col justify-between select-none relative overflow-hidden shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+            <div className="w-full rounded-2xl border border-white/10 bg-slate-950/20 p-8 backdrop-blur-md flex flex-col justify-between select-none relative overflow-hidden shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
               <div className="mb-6 relative z-10 flex items-center justify-between">
                 <div>
                   <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Session Analytics</span>
-                  <h3 className="text-[26px] font-semibold tracking-tight text-zinc-100 mt-1 antialiased">Focus Drift Analysis</h3>
+                  <h3 className="text-[26px] font-semibold tracking-tight text-white mt-1 antialiased">Focus Drift Analysis</h3>
                 </div>
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
                   <Activity className="h-5 w-5" />
@@ -346,19 +346,19 @@ export const AIInsightsPage: React.FC = () => {
                   </ResponsiveContainer>
                 ) : (
                   <div className="grid grid-cols-2 gap-4 h-full w-full">
-                    <div className="bg-white/[0.02] rounded-xl border border-white/5 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner">
+                    <div className="bg-white/[0.02] rounded-xl border border-white/10 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner">
                       <span className="text-[11px] uppercase tracking-[0.1em] text-cyan-500/70 block mb-1 font-bold">Avg Focus</span>
                       <span className="text-[28px] font-extrabold text-white tracking-tight"><CountUp end={Math.round(insightsData.scores.cognitive_efficiency)} duration={2}/>%</span>
                     </div>
-                    <div className="bg-white/[0.02] rounded-xl border border-white/5 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner relative">
+                    <div className="bg-white/[0.02] rounded-xl border border-white/10 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner relative">
                       <span className="text-[11px] uppercase tracking-[0.1em] text-blue-400/70 block mb-1 font-bold">Consistency</span>
                       <span className="text-[28px] font-extrabold text-white tracking-tight"><CountUp end={Math.round(insightsData.scores.focus_consistency)} duration={2}/>%</span>
                     </div>
-                    <div className="bg-white/[0.02] rounded-xl border border-white/5 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner relative">
+                    <div className="bg-white/[0.02] rounded-xl border border-white/10 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner relative">
                       <span className="text-[11px] uppercase tracking-[0.1em] text-red-400/70 block mb-1 font-bold">Burnout Risk</span>
                       <span className="text-[28px] font-extrabold text-white tracking-tight"><CountUp end={Math.round(insightsData.scores.burnout_risk)} duration={2}/>%</span>
                     </div>
-                    <div className="bg-white/[0.02] rounded-xl border border-white/5 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner">
+                    <div className="bg-white/[0.02] rounded-xl border border-white/10 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner">
                       <span className="text-[11px] uppercase tracking-[0.1em] text-indigo-400/70 block mb-1 font-bold">Momentum</span>
                       <span className="text-[28px] font-extrabold text-white tracking-tight"><CountUp end={Math.round(insightsData.scores.productivity_momentum)} duration={2}/>%</span>
                     </div>
@@ -369,14 +369,14 @@ export const AIInsightsPage: React.FC = () => {
           </motion.div>
 
           <motion.div variants={itemVariants} className="lg:col-span-4 w-full flex">
-            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md flex flex-col justify-between shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+            <div className="w-full rounded-2xl border border-white/10 bg-slate-950/20 p-8 backdrop-blur-md flex flex-col justify-between shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
               <div>
                 <span className="text-[11px] uppercase tracking-[0.18em] text-cyan-400 font-semibold mb-2 block">Cognitive Summary</span>
                 <p className="text-[15px] leading-[1.7] text-white/80 font-normal antialiased">
                   {insightsData.summary}
                 </p>
               </div>
-              <div className="mt-8 border-t border-white/5 pt-6 grid grid-cols-2 gap-4">
+              <div className="mt-8 border-t border-white/10 pt-6 grid grid-cols-2 gap-4">
                 <div>
                   <span className="text-[11px] uppercase tracking-[0.15em] text-white/45 block mb-1">Best Block</span>
                   <span className="text-[15px] font-bold text-white">{insightsData.patterns.best_time_window}</span>
@@ -395,7 +395,7 @@ export const AIInsightsPage: React.FC = () => {
           
           {/* Productivity Patterns */}
           <motion.div variants={itemVariants} className="w-full flex">
-            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col">
+            <div className="w-full rounded-2xl border border-white/10 bg-slate-950/20 p-8 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col">
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Domain Analysis</span>
@@ -407,36 +407,43 @@ export const AIInsightsPage: React.FC = () => {
                 {insightsData.productivity_patterns && insightsData.productivity_patterns.length >= 3 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart cx="50%" cy="50%" outerRadius="70%" data={insightsData.productivity_patterns}>
-                      <PolarGrid stroke="rgba(255,255,255,0.1)" />
-                      <PolarAngleAxis dataKey="domain" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
+                      <PolarGrid stroke="rgba(255,255,255,0.05)" />
+                      <PolarAngleAxis dataKey="category" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 12 }} />
                       <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                       <RechartsTooltip content={<CustomTooltip />} />
                       <Radar name="Productivity" dataKey="score" stroke="#8b5cf6" strokeWidth={2} fill="#8b5cf6" fillOpacity={0.3} />
                     </RadarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="grid grid-cols-2 gap-4 h-full w-full">
-                    <div className="bg-white/[0.02] rounded-xl border border-white/5 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors relative shadow-inner">
-                      <div className="absolute top-2 right-2 text-[8px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Pattern</div>
-                      <span className="text-[11px] uppercase tracking-[0.1em] text-violet-400/70 block mb-1 font-bold">Dominant Session</span>
-                      <span className="text-[18px] font-extrabold text-white tracking-tight leading-tight">
-                        {insightsData.productivity_patterns?.sort((a,b) => b.score - a.score)[0]?.domain || (insightsData.patterns.deep_work_ratio > 0.4 ? "Deep Work" : "Cognitive Block")}
-                      </span>
+                  <div className="flex flex-col h-full w-full gap-3">
+                    <div className="grid grid-cols-2 gap-4 flex-1">
+                      <div className="bg-white/[0.02] rounded-xl border border-white/10 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors relative shadow-inner">
+                        <div className="absolute top-2 right-2 text-[8px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Pattern</div>
+                        <span className="text-[11px] uppercase tracking-[0.1em] text-violet-400/70 block mb-1 font-bold">Dominant Session</span>
+                        <span className="text-[18px] font-extrabold text-white tracking-tight leading-tight">
+                          {insightsData.productivity_patterns?.sort((a,b) => b.score - a.score)[0]?.category || (insightsData.patterns.deep_work_ratio > 0.4 ? "Deep Work" : "Cognitive Block")}
+                        </span>
+                      </div>
+                      <div className="bg-white/[0.02] rounded-xl border border-white/10 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner">
+                        <span className="text-[11px] uppercase tracking-[0.1em] text-cyan-400/70 block mb-1 font-bold">Most Productive Mode</span>
+                        <span className="text-[18px] font-extrabold text-white tracking-tight leading-tight">
+                          {insightsData.scores.cognitive_efficiency > 75 ? "Peak Flow State" : "Sustained Endurance"}
+                        </span>
+                      </div>
+                      <div className="bg-white/[0.02] rounded-xl border border-white/10 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner">
+                        <span className="text-[11px] uppercase tracking-[0.1em] text-emerald-400/70 block mb-1 font-bold">Main Work Context</span>
+                        <span className="text-[16px] font-extrabold text-white tracking-tight leading-tight px-2">{insightsData.patterns.best_time_window}</span>
+                      </div>
+                      <div className="bg-white/[0.02] rounded-xl border border-white/10 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner">
+                        <span className="text-[11px] uppercase tracking-[0.1em] text-red-400/70 block mb-1 font-bold">Distraction Risk</span>
+                        <span className="text-[24px] font-extrabold text-white tracking-tight leading-tight"><CountUp end={Math.round(100 - insightsData.patterns.attention_stability)} duration={2}/>%</span>
+                      </div>
                     </div>
-                    <div className="bg-white/[0.02] rounded-xl border border-white/5 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner">
-                      <span className="text-[11px] uppercase tracking-[0.1em] text-cyan-400/70 block mb-1 font-bold">Most Productive Mode</span>
-                      <span className="text-[18px] font-extrabold text-white tracking-tight leading-tight">
-                        {insightsData.scores.cognitive_efficiency > 75 ? "Peak Flow State" : "Sustained Endurance"}
-                      </span>
-                    </div>
-                    <div className="bg-white/[0.02] rounded-xl border border-white/5 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner">
-                      <span className="text-[11px] uppercase tracking-[0.1em] text-emerald-400/70 block mb-1 font-bold">Main Work Context</span>
-                      <span className="text-[16px] font-extrabold text-white tracking-tight leading-tight px-2">{insightsData.patterns.best_time_window}</span>
-                    </div>
-                    <div className="bg-white/[0.02] rounded-xl border border-white/5 p-4 flex flex-col justify-center text-center hover:bg-white/[0.04] transition-colors shadow-inner">
-                      <span className="text-[11px] uppercase tracking-[0.1em] text-red-400/70 block mb-1 font-bold">Distraction Risk</span>
-                      <span className="text-[24px] font-extrabold text-white tracking-tight leading-tight"><CountUp end={Math.round(100 - insightsData.patterns.attention_stability)} duration={2}/>%</span>
-                    </div>
+                    {insightsData.productivity_patterns && insightsData.productivity_patterns.length > 0 && insightsData.productivity_patterns.length < 3 && (
+                      <div className="mt-1 text-center text-[12px] font-medium text-white/50 bg-white/[0.02] py-2.5 rounded-lg border border-white/10 shadow-inner">
+                        Complete sessions across more work modes to unlock radar view.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -445,7 +452,7 @@ export const AIInsightsPage: React.FC = () => {
 
           {/* Fatigue Intelligence */}
           <motion.div variants={itemVariants} className="w-full flex">
-            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col">
+            <div className="w-full rounded-2xl border border-white/10 bg-slate-950/20 p-8 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col">
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Ocular Telemetry</span>
@@ -468,13 +475,13 @@ export const AIInsightsPage: React.FC = () => {
                   </ResponsiveContainer>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-full w-full">
-                    <div className="bg-white/[0.02] rounded-xl border border-white/5 p-4 flex flex-col justify-center items-center text-center hover:bg-white/[0.04] transition-colors relative">
+                    <div className="bg-white/[0.02] rounded-xl border border-white/10 p-4 flex flex-col justify-center items-center text-center hover:bg-white/[0.04] transition-colors relative">
                       <div className="absolute top-3 right-3 text-[8px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Analysis</div>
                       <Coffee className="h-6 w-6 text-amber-500/50 mb-2" />
                       <span className="text-[11px] uppercase tracking-[0.1em] text-white/50 block mb-1">Fatigue Trend</span>
                       <span className="text-2xl font-bold text-white">{insightsData.patterns?.fatigue_drift > 0 ? '+' : ''}{Math.round(insightsData.patterns?.fatigue_drift || 0)}</span>
                     </div>
-                    <div className="bg-white/[0.02] rounded-xl border border-white/5 p-4 flex flex-col justify-center items-center text-center hover:bg-white/[0.04] transition-colors relative">
+                    <div className="bg-white/[0.02] rounded-xl border border-white/10 p-4 flex flex-col justify-center items-center text-center hover:bg-white/[0.04] transition-colors relative">
                       <Activity className="h-6 w-6 text-emerald-500/50 mb-2" />
                       <span className="text-[11px] uppercase tracking-[0.1em] text-white/50 block mb-1">Recovery Balance</span>
                       <span className="text-2xl font-bold text-white">{Math.round(insightsData.scores.recovery_balance)}%</span>
@@ -490,7 +497,7 @@ export const AIInsightsPage: React.FC = () => {
         <div className="flex flex-col gap-6">
           <div className="text-left">
             <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">Actionable Intelligence</span>
-            <h3 className="text-[26px] font-semibold tracking-tight text-zinc-100 mt-1 antialiased">Smart Recommendations</h3>
+            <h3 className="text-[26px] font-semibold tracking-tight text-white mt-1 antialiased">Smart Recommendations</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -502,7 +509,7 @@ export const AIInsightsPage: React.FC = () => {
                 <motion.div 
                   key={idx}
                   variants={itemVariants}
-                  className="group relative rounded-2xl border border-white/5 bg-slate-950/20 p-6 backdrop-blur-md flex flex-col justify-between hover:scale-[1.01] hover:bg-slate-950/30 transition-all duration-300 select-none text-left min-h-[190px]"
+                  className="group relative rounded-2xl border border-white/10 bg-slate-950/20 p-6 backdrop-blur-md flex flex-col justify-between hover:scale-[1.01] hover:bg-slate-950/20 transition-all duration-300 select-none text-left min-h-[190px]"
                 >
                   <div className="flex flex-col gap-5">
                     <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${styles.bg}`}>
@@ -513,7 +520,7 @@ export const AIInsightsPage: React.FC = () => {
                         <h4 className="text-[18px] font-semibold tracking-tight text-white group-hover:text-cyan-400 transition-colors antialiased">
                           {rec.title}
                         </h4>
-                        <span className="text-[10px] uppercase tracking-wider text-white/50 font-semibold px-2 py-1 bg-white/5 rounded border border-white/5">
+                        <span className="text-[10px] uppercase tracking-wider text-white/50 font-semibold px-2 py-1 bg-white/5 rounded border border-white/10">
                           {rec.confidence}
                         </span>
                       </div>
@@ -533,7 +540,7 @@ export const AIInsightsPage: React.FC = () => {
 
         {/* ================= 7. WEEKLY TREND CHARTS ================= */}
         <motion.div variants={itemVariants} className="w-full">
-          <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-8 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col">
+          <div className="w-full rounded-2xl border border-white/10 bg-slate-950/20 p-8 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <span className="text-[11px] uppercase tracking-[0.18em] text-white/45 block mb-1">7-Day Aggregation</span>

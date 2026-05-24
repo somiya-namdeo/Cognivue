@@ -17,7 +17,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="relative min-h-screen w-full bg-transparent text-zinc-300 overflow-x-hidden flex select-none">
+    <div className="relative min-h-screen w-full bg-transparent text-zinc-400 overflow-x-hidden flex select-none">
       
       {/* ================= BACKGROUND SYSTEM ================= */}
       {/* 1. Base Grid Overlay */}

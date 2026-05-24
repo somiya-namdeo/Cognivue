@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Play, Activity, Brain, Eye, Sparkles, Clock, Zap } from 'lucide-react';
-import { getLocalSession } from '../services/api';
+import { ArrowRight, Activity, Brain, Eye, Sparkles, Clock, Zap } from 'lucide-react';
 
 export const HeroSection = () => {
   const [sessionTime, setSessionTime] = useState('00:42:18');
@@ -97,28 +96,13 @@ export const HeroSection = () => {
           {/* Buttons */}
           <div className="mt-10 flex flex-wrap gap-4 items-center">
             {/* Start Monitoring */}
-            {(() => {
-              const session = getLocalSession();
-              const target = session?.accessToken && session?.userId ? '/live-monitoring' : '/login';
-              return (
-                <Link
-                  to={target}
-                  className="glow-btn group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3.5 text-sm font-semibold text-white transition-all shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_20px_rgba(6,182,212,0.18)] select-none hover:scale-[1.01]"
-                >
-                  Start Monitoring
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 duration-200" />
-                </Link>
-              );
-            })()}
-
-            {/* Watch demo */}
-            <a 
-              href="#demo"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/5 bg-white/5 px-6 py-3.5 text-sm font-semibold text-zinc-200 transition-all hover:bg-white/10 hover:text-white backdrop-blur-md select-none hover:border-white/10"
+            <Link
+              to="/signup"
+              className="glow-btn group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3.5 text-sm font-semibold text-white transition-all shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_20px_rgba(6,182,212,0.18)] select-none hover:scale-[1.01]"
             >
-              <Play className="h-4 w-4 fill-current text-zinc-300" />
-              Watch demo
-            </a>
+              Start Monitoring
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 duration-200" />
+            </Link>
           </div>
 
           {/* Clean, Research-Grade Metadata Row (Replaced trust badges) */}

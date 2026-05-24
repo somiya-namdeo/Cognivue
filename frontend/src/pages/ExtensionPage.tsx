@@ -17,11 +17,13 @@ import {
 import { DashboardLayout } from '../components/DashboardLayout';
 import { getLocalSession, getExtensionActivity } from '../services/api';
 import type { ExtensionActivityResponse } from '../services/api';
+import { PrivacyManifestoModal } from '../components/PrivacyManifestoModal';
 
 export const ExtensionPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState('Extension');
   const [isPaused, setIsPaused] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const session = getLocalSession();
   const userId = session.userId;
   
@@ -75,11 +77,6 @@ export const ExtensionPage: React.FC = () => {
         duration: 0.5
       }
     }
-  };
-
-  const handleDownloadClick = () => {
-    setShowNotification(true);
-    setTimeout(() => setShowNotification(false), 3000);
   };
 
   return (
@@ -167,11 +164,11 @@ export const ExtensionPage: React.FC = () => {
           <div className="lg:col-span-7 w-full flex justify-center">
             
             {/* Realistic Browser Window container */}
-            <div className="w-full max-w-[620px] rounded-2xl border border-white/10 bg-slate-950/40 p-4.5 backdrop-blur-md shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden select-none">
+            <div className="w-full max-w-[620px] rounded-2xl border border-white/10 bg-white/[0.02] p-4.5 backdrop-blur-md shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden select-none">
               <div className="absolute inset-0 grid-background opacity-[0.015] pointer-events-none" />
               
               {/* Browser bar top */}
-              <div className="flex items-center justify-between pb-4.5 border-b border-white/5 relative z-10">
+              <div className="flex items-center justify-between pb-4.5 border-b border-white/10 relative z-10">
                 {/* 3 Mac traffic light window buttons */}
                 <div className="flex items-center gap-2">
                   <div className="h-3 w-3 rounded-full bg-[#ff5f56]" />
@@ -180,7 +177,7 @@ export const ExtensionPage: React.FC = () => {
                 </div>
                 
                 {/* URL box Address bar */}
-                <div className="flex-1 max-w-[340px] mx-4 rounded-lg bg-white/[0.03] border border-white/5 px-3 py-1 flex items-center justify-center text-center">
+                <div className="flex-1 max-w-[340px] mx-4 rounded-lg bg-white/[0.03] border border-white/10 px-3 py-1 flex items-center justify-center text-center">
                   <span className="text-[11px] font-semibold text-zinc-400 tracking-wide font-mono">docs.cognivue.ai/research</span>
                 </div>
 
@@ -204,17 +201,14 @@ export const ExtensionPage: React.FC = () => {
                   
                   {/* Logo + Version */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-5.5 w-5.5 rounded bg-gradient-to-br from-cyan-500/20 to-violet-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-                        <Sparkles className="h-3 w-3 animate-pulse" />
-                      </div>
-                      <span className="text-xs font-bold text-white tracking-tight">Cognivue</span>
+                    <div className="flex items-center">
+                      <img src="/logo.png" alt="Cognivue Logo" className="h-6 w-auto drop-shadow-[0_0_15px_rgba(6,182,212,0.15)]" />
                     </div>
                     <span className="text-[10px] font-bold text-zinc-500 font-mono">v2.4.1</span>
                   </div>
 
                   {/* Main Focus Score meter card */}
-                  <div className="rounded-xl border border-white/5 bg-white/[0.01] p-3.5 flex items-center justify-between">
+                  <div className="rounded-xl border border-white/10 bg-white/[0.01] p-3.5 flex items-center justify-between">
                     <div className="flex flex-col text-left">
                       <span className="text-[9px] uppercase tracking-[0.15em] text-white/45 block mb-0.5">Current focus score</span>
                       <span className="text-[28px] font-bold text-white leading-none antialiased">92</span>
@@ -234,7 +228,7 @@ export const ExtensionPage: React.FC = () => {
                     className={`w-full py-2.5 rounded-lg border flex items-center justify-center gap-2 text-xs font-bold transition-all ${
                       isPaused 
                         ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/15'
-                        : 'bg-white/[0.03] border-white/5 text-white hover:bg-white/[0.06] hover:border-white/10'
+                        : 'bg-white/[0.03] border-white/10 text-white hover:bg-white/[0.06] hover:border-white/10'
                     }`}
                   >
                     {isPaused ? (
@@ -271,7 +265,7 @@ export const ExtensionPage: React.FC = () => {
 
                     {/* Quick-action buttons */}
                     <div className="flex items-center gap-2 mt-2.5 select-none">
-                      <button className="px-2.5 py-1 rounded bg-white/[0.04] border border-white/5 text-[9px] font-bold text-zinc-400 hover:text-white transition-all">
+                      <button className="px-2.5 py-1 rounded bg-white/[0.04] border border-white/10 text-[9px] font-bold text-zinc-400 hover:text-white transition-all">
                         Snooze
                       </button>
                       <button className="px-2.5 py-1 rounded bg-rose-500/10 border border-rose-500/20 text-[9px] font-bold text-rose-455 hover:bg-rose-500/15 transition-all">
@@ -293,9 +287,9 @@ export const ExtensionPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full mt-4">
           
           {/* Installation Steps */}
-          <div className="rounded-2xl border border-white/5 bg-slate-950/20 p-6 backdrop-blur-md flex flex-col gap-4 text-left">
+          <div className="rounded-2xl border border-white/10 bg-slate-950/20 p-6 backdrop-blur-md flex flex-col gap-4 text-left">
             <h4 className="text-lg font-bold text-white mb-2">Manual Installation</h4>
-            <ol className="list-decimal list-inside text-sm text-zinc-300 space-y-3 font-medium">
+            <ol className="list-decimal list-inside text-sm text-zinc-400 space-y-3 font-medium">
               <li>Open Chrome and navigate to <code className="bg-white/10 px-1.5 py-0.5 rounded text-cyan-300 font-mono text-xs">chrome://extensions</code></li>
               <li>Toggle <strong>Developer mode</strong> ON in the top right corner.</li>
               <li>Click <strong>Load unpacked</strong> and select the <code className="bg-white/10 px-1.5 py-0.5 rounded text-cyan-300 font-mono text-xs">extension</code> folder from the project source.</li>
@@ -304,7 +298,7 @@ export const ExtensionPage: React.FC = () => {
           </div>
 
           {/* Connection Status & Key */}
-          <div className="rounded-2xl border border-white/5 bg-slate-950/20 p-6 backdrop-blur-md flex flex-col gap-4 text-left">
+          <div className="rounded-2xl border border-white/10 bg-slate-950/20 p-6 backdrop-blur-md flex flex-col gap-4 text-left">
             <h4 className="text-lg font-bold text-white mb-2 flex items-center justify-between">
               <span>Extension Connection</span>
               {latestActivity ? (
@@ -362,7 +356,7 @@ export const ExtensionPage: React.FC = () => {
         </div>
 
         {/* ================= INSTALLATION GUIDE SECTION ================= */}
-        <div id="installation-guide" className="rounded-2xl border border-white/5 bg-slate-950/20 p-6 sm:p-8 backdrop-blur-md flex flex-col gap-6 text-left mt-4 select-text">
+        <div id="installation-guide" className="rounded-2xl border border-white/10 bg-slate-950/20 p-6 sm:p-8 backdrop-blur-md flex flex-col gap-6 text-left mt-4 select-text">
           <div className="flex flex-col gap-2">
             <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
               <Code className="h-5 w-5 text-cyan-400" />
@@ -411,7 +405,7 @@ export const ExtensionPage: React.FC = () => {
         </div>
 
         {/* ================= BOTTOM PRIVACY ASSURANCE SECTION ================= */}
-        <div className="rounded-2xl border border-white/5 bg-slate-950/20 p-6 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-5 select-none hover:border-white/10 transition-all duration-300 shadow-[0_4px_30px_rgba(0,0,0,0.3)] mt-4">
+        <div className="rounded-2xl border border-white/10 bg-slate-950/20 p-6 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-5 select-none hover:border-white/10 transition-all duration-300 shadow-[0_4px_30px_rgba(0,0,0,0.3)] mt-4">
           
           <div className="flex items-center gap-5 text-left w-full sm:w-auto">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0">
@@ -427,13 +421,23 @@ export const ExtensionPage: React.FC = () => {
             </div>
           </div>
 
-          <button className="rounded-xl border border-white/10 hover:border-white/20 px-5 py-3 text-[13px] font-semibold text-white hover:bg-white/[0.04] transition-all duration-300 shrink-0 w-full sm:w-auto justify-center">
+          <button 
+            onClick={() => setShowPrivacyModal(true)}
+            className="rounded-xl border border-white/10 hover:border-white/20 px-5 py-3 text-[13px] font-semibold text-white hover:bg-white/[0.04] transition-all duration-300 shrink-0 w-full sm:w-auto justify-center"
+          >
             Read privacy manifesto
           </button>
 
         </div>
 
       </motion.div>
+
+      {/* Privacy Manifesto Modal */}
+      <PrivacyManifestoModal 
+        isOpen={showPrivacyModal} 
+        onClose={() => setShowPrivacyModal(false)} 
+      />
+
     </DashboardLayout>
   );
 };

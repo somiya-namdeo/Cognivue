@@ -323,7 +323,7 @@ export const SessionsPage: React.FC = () => {
               <button 
                 onClick={fetchHistory}
                 disabled={isLoading}
-                className="p-2 rounded-xl border border-white/5 bg-slate-950/20 text-zinc-400 hover:text-white hover:bg-white/[0.04] backdrop-blur-md transition-all cursor-pointer flex items-center justify-center disabled:opacity-50"
+                className="p-2 rounded-xl border border-white/10 bg-slate-950/20 text-zinc-400 hover:text-white hover:bg-white/[0.04] backdrop-blur-md transition-all cursor-pointer flex items-center justify-center disabled:opacity-50"
                 title="Refresh Sessions"
               >
                 <RefreshCw className={`h-4.5 w-4.5 ${isLoading ? 'animate-spin text-cyan-400' : ''}`} />
@@ -363,7 +363,7 @@ export const SessionsPage: React.FC = () => {
                 placeholder="Search sessions..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/5 bg-slate-950/20 text-sm font-semibold text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-500/20 backdrop-blur-md transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-slate-950/20 text-sm font-semibold text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-500/20 backdrop-blur-md transition-colors"
               />
             </div>
 
@@ -372,7 +372,7 @@ export const SessionsPage: React.FC = () => {
               <select
                 value={fatigueFilter}
                 onChange={(e) => setFatigueFilter(e.target.value)}
-                className="w-full appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-white/5 bg-slate-950/20 text-sm font-semibold text-white focus:outline-none focus:border-cyan-500/20 backdrop-blur-md transition-all cursor-pointer"
+                className="w-full appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-white/10 bg-slate-950/20 text-sm font-semibold text-white focus:outline-none focus:border-cyan-500/20 backdrop-blur-md transition-all cursor-pointer"
               >
                 <option value="All" className="bg-slate-950 text-white font-medium">All Fatigue</option>
                 <option value="Low" className="bg-slate-950 text-white font-medium">Low Fatigue</option>
@@ -384,7 +384,7 @@ export const SessionsPage: React.FC = () => {
             </div>
 
             {/* 3. Min focus slider */}
-            <div className="flex items-center gap-3.5 px-4 py-2.5 rounded-xl border border-white/5 bg-slate-950/20 backdrop-blur-md">
+            <div className="flex items-center gap-3.5 px-4 py-2.5 rounded-xl border border-white/10 bg-slate-950/20 backdrop-blur-md">
               <Sliders className="h-4 w-4 text-zinc-400" />
               <span className="text-xs font-bold text-zinc-450 whitespace-nowrap">Min focus</span>
               <input 
@@ -401,7 +401,7 @@ export const SessionsPage: React.FC = () => {
 
           <div className="flex items-center gap-4">
             {/* 4. Load filter tabs toggle */}
-            <div className="flex items-center rounded-xl border border-white/5 bg-slate-950/20 p-1 backdrop-blur-md">
+            <div className="flex items-center rounded-xl border border-white/10 bg-slate-950/20 p-1 backdrop-blur-md">
               {['All', 'Low Load', 'Medium Load', 'High Load'].map((tab) => (
                 <button
                   key={tab}
@@ -409,7 +409,7 @@ export const SessionsPage: React.FC = () => {
                   className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all whitespace-nowrap ${
                     loadFilter === tab 
                       ? 'bg-white/[0.04] text-white shadow-inner border border-white/[0.02]' 
-                      : 'text-zinc-500 hover:text-zinc-300'
+                      : 'text-zinc-500 hover:text-zinc-400'
                   }`}
                 >
                   {tab}
@@ -434,7 +434,7 @@ export const SessionsPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           
           {/* Card 1: Total time */}
-          <div className="glass-card p-6 flex items-center gap-6 select-none relative overflow-hidden">
+          <div className="bg-slate-950/20 p-6 flex items-center gap-6 select-none relative overflow-hidden">
             <div className="h-11 w-11 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
               <Clock className="h-5 w-5" />
             </div>
@@ -447,7 +447,7 @@ export const SessionsPage: React.FC = () => {
           </div>
 
           {/* Card 2: Avg focus */}
-          <div className="glass-card p-6 flex items-center gap-6 select-none relative overflow-hidden">
+          <div className="bg-slate-950/20 p-6 flex items-center gap-6 select-none relative overflow-hidden">
             <div className="h-11 w-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
               <Activity className="h-5 w-5" />
             </div>
@@ -460,7 +460,7 @@ export const SessionsPage: React.FC = () => {
           </div>
 
           {/* Card 3: Avg load */}
-          <div className="glass-card p-6 flex items-center gap-6 select-none relative overflow-hidden">
+          <div className="bg-slate-950/20 p-6 flex items-center gap-6 select-none relative overflow-hidden">
             <div className="h-11 w-11 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0">
               <Brain className="h-5 w-5" />
             </div>
@@ -473,7 +473,7 @@ export const SessionsPage: React.FC = () => {
           </div>
 
           {/* Card 4: Avg productivity */}
-          <div className="glass-card p-6 flex items-center gap-6 select-none relative overflow-hidden">
+          <div className="bg-slate-950/20 p-6 flex items-center gap-6 select-none relative overflow-hidden">
             <div className="h-11 w-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
               <Target className="h-5 w-5" />
             </div>
@@ -564,7 +564,7 @@ export const SessionsPage: React.FC = () => {
                           )}
                         </div>
                       </td>
-                      <td className="py-[22px] pr-4 text-[13px] text-zinc-300 font-semibold">
+                      <td className="py-[22px] pr-4 text-[13px] text-zinc-400 font-semibold">
                         {formatLocalDate(session.start_time)}
                       </td>
                       <td className={`py-[22px] pr-4 text-[13px] font-bold ${isActive ? 'text-cyan-455 animate-pulse' : 'text-zinc-200'}`}>
@@ -617,7 +617,7 @@ export const SessionsPage: React.FC = () => {
                                   setSessionToRename(session);
                                   setActiveMenuId(null);
                                 }}
-                                className="w-full text-left px-4 py-2.5 text-zinc-300 hover:text-white hover:bg-white/5 transition-colors"
+                                className="w-full text-left px-4 py-2.5 text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
                               >
                                 Rename Session
                               </button>

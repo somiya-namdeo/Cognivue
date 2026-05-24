@@ -74,7 +74,7 @@ interface CustomTooltipProps {
 const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
-      <div className="rounded-xl border border-white/10 bg-slate-950/90 p-3 shadow-2xl backdrop-blur-md text-left select-none">
+      <div className="rounded-xl border border-white/10 bg-[#03030b]/90 p-3 shadow-2xl backdrop-blur-md text-left select-none">
         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">
           Time: {label}
         </span>
@@ -112,12 +112,12 @@ export const AttentionLoadChart: React.FC<AttentionLoadChartProps> = ({ data }) 
   const chartData = data && data.length > 0 ? data : attentionLoadData;
 
   return (
-    <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md shadow-lg select-none text-left relative overflow-hidden flex flex-col h-[380px]">
+    <div className="w-full rounded-2xl border border-white/10 bg-slate-950/20 p-5 backdrop-blur-md shadow-lg select-none text-left relative overflow-hidden flex flex-col h-[380px]">
       
       {/* Title Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-widest block">
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">
             Focus trend · 24h
           </span>
           <h3 className="text-base sm:text-lg font-extrabold text-white tracking-tight leading-tight mt-0.5">
@@ -151,17 +151,17 @@ export const AttentionLoadChart: React.FC<AttentionLoadChartProps> = ({ data }) 
                 <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.02)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
             <XAxis 
               dataKey="time" 
-              stroke="#4b5563" 
+              stroke="rgba(255,255,255,0.3)" 
               tickLine={false} 
               axisLine={false}
               dy={10}
               style={{ fontSize: '9px', fontWeight: 'bold' }}
             />
             <YAxis 
-              stroke="#4b5563" 
+              stroke="rgba(255,255,255,0.3)" 
               tickLine={false} 
               axisLine={false} 
               domain={[0, 100]}
@@ -169,7 +169,7 @@ export const AttentionLoadChart: React.FC<AttentionLoadChartProps> = ({ data }) 
               dx={-5}
               style={{ fontSize: '9px', fontWeight: 'bold' }}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255, 255, 255, 0.04)', strokeWidth: 1 }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.05)', strokeWidth: 1 }} />
             <Area 
               type="monotone" 
               name="Focus"
@@ -212,11 +212,11 @@ export const FocusProductivityChart: React.FC<FocusProductivityChartProps> = ({ 
   const xKey = chartData[0] && 'date' in chartData[0] ? 'date' : 'day';
 
   return (
-    <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md shadow-lg select-none text-left relative overflow-hidden flex flex-col h-[320px]">
+    <div className="w-full rounded-2xl border border-white/10 bg-slate-950/20 p-5 backdrop-blur-md shadow-lg select-none text-left relative overflow-hidden flex flex-col h-[320px]">
 
       {/* Header */}
       <div className="mb-4">
-        <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-widest block">
+        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">
           Weekly productivity
         </span>
         <h3 className="text-base font-extrabold text-white tracking-tight leading-tight mt-0.5">
@@ -228,17 +228,17 @@ export const FocusProductivityChart: React.FC<FocusProductivityChartProps> = ({ 
       <div className="w-full h-[260px] min-h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }} barGap={6}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.02)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
             <XAxis 
               dataKey={xKey} 
-              stroke="#4b5563" 
+              stroke="rgba(255,255,255,0.3)" 
               tickLine={false} 
               axisLine={false}
               dy={10}
               style={{ fontSize: '9px', fontWeight: 'bold' }}
             />
             <YAxis 
-              stroke="#4b5563" 
+              stroke="rgba(255,255,255,0.3)" 
               tickLine={false} 
               axisLine={false}
               domain={[0, 100]}
@@ -246,7 +246,7 @@ export const FocusProductivityChart: React.FC<FocusProductivityChartProps> = ({ 
               dx={-5}
               style={{ fontSize: '9px', fontWeight: 'bold' }}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.01)' }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
             <Bar 
               name="Focus"
               dataKey="focus" 
@@ -304,12 +304,12 @@ export const RealtimeLoadChart: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md shadow-lg select-none text-left relative overflow-hidden flex flex-col h-[320px]">
+    <div className="w-full rounded-2xl border border-white/10 bg-slate-950/20 p-5 backdrop-blur-md shadow-lg select-none text-left relative overflow-hidden flex flex-col h-[320px]">
 
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-widest block">
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">
             Cognitive load · last 30 min
           </span>
           <h3 className="text-base font-extrabold text-white tracking-tight leading-tight mt-0.5">
@@ -331,17 +331,17 @@ export const RealtimeLoadChart: React.FC = () => {
       <div className="w-full h-[260px] min-h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.02)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
             <XAxis 
               dataKey="min" 
-              stroke="#4b5563" 
+              stroke="rgba(255,255,255,0.3)" 
               tickLine={false} 
               axisLine={false}
               dy={10}
               style={{ fontSize: '9px', fontWeight: 'bold' }}
             />
             <YAxis 
-              stroke="#4b5563" 
+              stroke="rgba(255,255,255,0.3)" 
               tickLine={false} 
               axisLine={false}
               domain={[0, 100]}

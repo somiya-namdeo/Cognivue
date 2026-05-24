@@ -141,7 +141,7 @@ export const MetricCards: React.FC<MetricCardsProps> = ({
           <motion.div
             key={i}
             variants={itemVariants}
-            className={`group relative rounded-2xl border border-white/5 bg-slate-950/20 px-6 py-7 backdrop-blur-md shadow-lg select-none text-left overflow-hidden min-h-[130px] transition-all duration-300 hover:scale-[1.01] hover:bg-slate-950/30 ${metric.glowColor}`}
+            className={`group relative rounded-2xl border border-white/10 bg-slate-950/20 px-6 py-7 backdrop-blur-md shadow-lg select-none text-left overflow-hidden min-h-[130px] transition-all duration-300 hover:scale-[1.01] hover:bg-slate-950/20 ${metric.glowColor}`}
           >
             {/* Embedded glowing background indicator */}
             <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.01] via-transparent to-transparent pointer-events-none" />

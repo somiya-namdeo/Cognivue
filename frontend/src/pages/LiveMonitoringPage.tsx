@@ -30,7 +30,8 @@ import {
   getSessionMetrics, 
   getExtensionActivity 
 } from '../services/api';
-import type { SessionResponse, MetricResponse, ExtensionActivityResponse } from '../services/api';
+import type { MetricResponse, ExtensionActivityResponse } from '../services/api';
+import { pushNotification } from '../services/notifications';
 
 // ==========================================
 // 1. SMOOTH ANIMATED COUNTER HOOK
@@ -73,7 +74,7 @@ interface LiveTooltipProps {
 const LiveTooltip = ({ active, payload }: LiveTooltipProps) => {
   if (active && payload && payload.length) {
     return (
-      <div className="rounded-xl border border-white/10 bg-slate-950/90 p-2.5 shadow-2xl backdrop-blur-md text-left select-none text-[10px]">
+      <div className="rounded-xl border border-white/10 bg-[#03030b]/90 p-2.5 shadow-2xl backdrop-blur-md text-left select-none text-[10px]">
         <span className="font-semibold text-zinc-400">Focus Index:</span>{' '}
         <span className="font-bold text-cyan-400">{payload[0].value}%</span>
       </div>
@@ -84,7 +85,7 @@ const LiveTooltip = ({ active, payload }: LiveTooltipProps) => {
 
 export const LiveMonitoringPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState('Live Monitoring');
-  const [metricsLoopId, setMetricsLoopId] = useState<number | null>(null);
+  // Component state
   
   // Extension Telemetry State
   const [extensionActivity, setExtensionActivity] = useState<ExtensionActivityResponse | null>(null);
@@ -278,6 +279,13 @@ export const LiveMonitoringPage: React.FC = () => {
           setStreamStatus('Connected');
           setErrorMessage(null);
           setHasBackendOfflineWarning(false);
+
+          if (metric.fatigue_score > 35) {
+            pushNotification('High Fatigue Detected', 'Your fatigue index is elevated. Consider taking a short break.', 'warning', '/live-monitoring');
+          }
+          if (metric.gaze_status === 'Off Screen') {
+            pushNotification('High Distraction Risk', 'You have been distracted or looked away from the screen.', 'warning', '/live-monitoring');
+          }
 
           // Update chart stream
           const historyData = metrics.map((m) => {
@@ -494,6 +502,7 @@ export const LiveMonitoringPage: React.FC = () => {
       setElapsedSeconds(0);
       setHasBackendOfflineWarning(false);
       setShowSummaryModal(true);
+      pushNotification('Session Completed', `Deep work session completed with a focus score of ${avgFocus}%.`, 'success', '/sessions');
     } catch (err: any) {
       console.error('Failed to end session cleanly:', err);
       setErrorMessage(err.message || 'Failed to end session cleanly. Backend service offline.');
@@ -536,7 +545,7 @@ export const LiveMonitoringPage: React.FC = () => {
       title: 'Blink rate',
       value: isSessionActive && latestMetric ? `${animatedBlinkRate} /min` : '--',
       status: isSessionActive && latestMetric ? 'Normal' : '--',
-      statusColor: 'text-zinc-550',
+      statusColor: 'text-zinc-500',
       icon: Eye,
       iconColor: 'text-cyan-400',
       iconBg: 'bg-cyan-500/10 border-cyan-500/20'
@@ -563,7 +572,7 @@ export const LiveMonitoringPage: React.FC = () => {
       title: 'Posture',
       value: isSessionActive && latestMetric ? latestMetric.posture_status : (isSessionActive ? 'Waiting...' : 'Unknown'),
       status: isSessionActive && latestMetric ? (latestMetric.posture_status === 'Slouched' ? 'Recalibrate posture' : 'Optimal alignment') : '--',
-      statusColor: isSessionActive && latestMetric?.posture_status === 'Slouched' ? 'text-amber-400' : 'text-zinc-550',
+      statusColor: isSessionActive && latestMetric?.posture_status === 'Slouched' ? 'text-amber-400' : 'text-zinc-500',
       icon: Zap,
       iconColor: 'text-amber-400',
       iconBg: 'bg-amber-500/10 border-amber-500/20'
@@ -572,7 +581,7 @@ export const LiveMonitoringPage: React.FC = () => {
       title: 'Active tab',
       value: isSessionActive && latestMetric ? latestMetric.active_tab : (isSessionActive ? 'Waiting...' : 'None'),
       status: isSessionActive && latestMetric ? 'Productive category' : '--',
-      statusColor: 'text-zinc-550',
+      statusColor: 'text-zinc-500',
       icon: Globe,
       iconColor: 'text-pink-400',
       iconBg: 'bg-pink-500/10 border-pink-500/20'
@@ -581,7 +590,7 @@ export const LiveMonitoringPage: React.FC = () => {
       title: 'Fatigue index',
       value: isSessionActive && latestMetric ? `${animatedFatigueScore}%` : '--',
       status: isSessionActive && latestMetric ? (animatedFatigueScore < 25 ? 'Optimal Low' : (animatedFatigueScore < 35 ? 'Moderate' : 'High Alert')) : '--',
-      statusColor: isSessionActive && latestMetric ? (animatedFatigueScore < 25 ? 'text-emerald-400' : (animatedFatigueScore < 35 ? 'text-amber-400' : 'text-rose-450')) : 'text-zinc-550',
+      statusColor: isSessionActive && latestMetric ? (animatedFatigueScore < 25 ? 'text-emerald-400' : (animatedFatigueScore < 35 ? 'text-amber-400' : 'text-rose-450')) : 'text-zinc-500',
       icon: Zap,
       iconColor: 'text-rose-400',
       iconBg: 'bg-rose-500/10 border-rose-500/20'
@@ -613,7 +622,7 @@ export const LiveMonitoringPage: React.FC = () => {
           <h2 className="font-sans text-3xl font-extrabold tracking-tight text-white select-none">
             Live Monitoring
           </h2>
-          <p className="text-sm font-semibold text-zinc-450 mt-1">
+          <p className="text-sm font-semibold text-zinc-400 mt-1">
             Real-time cognitive state inferred from vision, language and behaviour.
           </p>
         </div>
@@ -648,7 +657,7 @@ export const LiveMonitoringPage: React.FC = () => {
           <div className="lg:col-span-8 flex flex-col gap-4 w-full">
             
             {/* Webcam Preview glassmorphism container */}
-            <div className="w-full rounded-2xl border border-white/5 bg-slate-950/25 backdrop-blur-lg shadow-2xl overflow-hidden flex flex-col min-h-[460px] relative select-none">
+            <div className="w-full rounded-2xl border border-white/10 bg-slate-950/25 backdrop-blur-lg shadow-2xl overflow-hidden flex flex-col min-h-[460px] relative select-none">
               
               {/* Subtle animated neural grid dots background */}
               <div className="absolute inset-0 neural-dots opacity-[0.08] pointer-events-none" />
@@ -678,9 +687,9 @@ export const LiveMonitoringPage: React.FC = () => {
               )}
 
               {isSessionActive && (
-                <div className="flex items-center rounded-full bg-white/[0.03] border border-white/5 px-2.5 py-0.5 text-[9px] font-bold text-zinc-350 font-mono tracking-tight shadow-[0_2px_8px_rgba(0,0,0,0.2)]">
+                <div className="flex items-center rounded-full bg-border-color border border-white/10 px-2.5 py-0.5 text-[9px] font-bold text-zinc-400 font-mono tracking-tight shadow-[0_2px_8px_rgba(0,0,0,0.2)]">
                   <span className="text-zinc-500 mr-1 select-none">T+</span>
-                  <span className="tabular-nums font-bold text-zinc-100 text-[10px] tracking-tight">{formatTime(elapsedSeconds)}</span>
+                  <span className="tabular-nums font-bold text-white text-[10px] tracking-tight">{formatTime(elapsedSeconds)}</span>
                 </div>
               )}
 
@@ -696,7 +705,7 @@ export const LiveMonitoringPage: React.FC = () => {
 
             <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3.5 py-1.5 text-right flex flex-col gap-0.5 select-none font-mono">
               <span className="text-[8px] font-bold text-cyan-500/70 uppercase tracking-widest leading-none">inference model</span>
-              <span className="text-[10px] font-bold text-zinc-350 leading-none mt-0.5">MediaPipe FaceMesh · 30fps</span>
+              <span className="text-[10px] font-bold text-zinc-400 leading-none mt-0.5">MediaPipe FaceMesh · 30fps</span>
             </div>
           </div>
           {/* Debug UI: show active session ID preview */}
@@ -732,10 +741,10 @@ export const LiveMonitoringPage: React.FC = () => {
 
               {/* Bottom control bar */}
               <div className="text-xs font-bold text-zinc-400 mb-2">CV Stream: {streamStatus}</div>
-              <div className="border-t border-white/[0.04] bg-white/[0.01] px-6 py-4.5 flex items-center justify-between z-10">
+              <div className="border-t border-white/[0.04] bg-slate-950 px-6 py-4.5 flex items-center justify-between z-10">
                 {/* Focus score readout */}
                 <div className="flex flex-col gap-0.5 text-left">
-                  <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest leading-none">Focus score</span>
+                  <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest leading-none">Focus score</span>
                   <span className="text-3xl font-black text-cyan-400 tracking-tight leading-none mt-1 shadow-cyan-400/10 drop-shadow-[0_0_8px_rgba(6,182,212,0.15)] font-sans">
                     {isSessionActive && latestMetric ? animatedFocusScore : '--'}
                   </span>
@@ -748,7 +757,7 @@ export const LiveMonitoringPage: React.FC = () => {
                     disabled={isSessionActive || isLoading}
                     className={`glow-btn inline-flex items-center gap-2 rounded-xl px-4.5 py-2.5 text-xs font-bold text-white shadow-md transition-all duration-350 ${
                       isSessionActive 
-                        ? 'opacity-40 cursor-not-allowed bg-white/[0.02] border border-white/5' 
+                        ? 'opacity-40 cursor-not-allowed bg-white/[0.02] border border-white/10' 
                         : 'bg-gradient-to-r from-cyan-500 to-violet-600 hover:from-cyan-400 hover:to-violet-500 hover:scale-[1.02] active:scale-[0.98]'
                     }`}
                   >
@@ -781,7 +790,7 @@ export const LiveMonitoringPage: React.FC = () => {
             </div>
 
             {/* Subtle Safety/Privacy note disclaimer */}
-            <p className="text-[11px] font-semibold text-zinc-550 text-center select-none antialiased">
+            <p className="text-[11px] font-semibold text-zinc-500 text-center select-none antialiased">
               🛡️ No raw webcam or screen data is stored. Only processed cognitive metrics are saved.
             </p>
 
@@ -795,8 +804,8 @@ export const LiveMonitoringPage: React.FC = () => {
               return (
                 <div 
                   key={idx}
-                  className={`group relative rounded-2xl border py-[12px] px-[20px] flex items-center justify-between select-none hover:scale-[1.015] hover:bg-slate-950/40 transition-all duration-300 ${
-                    isSessionActive ? activeGlowMap[idx] : 'border-white/5 bg-slate-950/20'
+                  className={`group relative rounded-2xl border py-[12px] px-[20px] flex items-center justify-between select-none hover:scale-[1.015] hover:bg-white/[0.02] transition-all duration-300 ${
+                    isSessionActive ? activeGlowMap[idx] : 'border-white/10 bg-slate-950/20'
                   }`}
                 >
                   {/* Atmospheric gradient highlights */}
@@ -811,10 +820,10 @@ export const LiveMonitoringPage: React.FC = () => {
 
                     {/* Text block */}
                     <div className="flex flex-col gap-0.5 text-left justify-center">
-                      <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest leading-none">
+                      <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest leading-none">
                         {card.title}
                       </span>
-                      <span className="text-sm font-extrabold text-zinc-100 antialiased tracking-tight mt-0.5 group-hover:text-cyan-400 transition-colors">
+                      <span className="text-sm font-extrabold text-white antialiased tracking-tight mt-0.5 group-hover:text-cyan-400 transition-colors">
                         {card.value}
                       </span>
                     </div>
@@ -833,13 +842,13 @@ export const LiveMonitoringPage: React.FC = () => {
         </div>
 
         {/* ================= FOCUS STREAM GRAPH SECTION ================= */}
-        <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md shadow-lg select-none text-left relative overflow-hidden flex flex-col h-[280px] hover:border-cyan-500/10 transition-colors duration-500">
+        <div className="w-full rounded-2xl border border-white/10 bg-slate-950/20 p-5 backdrop-blur-md shadow-lg select-none text-left relative overflow-hidden flex flex-col h-[280px] hover:border-cyan-500/10 transition-colors duration-500">
           {/* atmospheric lighting */}
           <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/[0.002] via-transparent to-transparent pointer-events-none" />
 
           {/* Title block */}
           <div className="mb-4">
-            <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-widest block">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">
               Attention telemetry
             </span>
             <h3 className="text-base font-extrabold text-white tracking-tight leading-tight mt-0.5">
@@ -912,10 +921,10 @@ export const LiveMonitoringPage: React.FC = () => {
         {/* ================= ADAPTIVE NUDGES SECTION ================= */}
         <div className="w-full flex flex-col gap-4 text-left">
           <div>
-            <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-widest block">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">
               Realtime signals
             </span>
-            <h3 className="text-sm font-bold text-zinc-100 tracking-tight leading-tight mt-0.5">
+            <h3 className="text-sm font-bold text-white tracking-tight leading-tight mt-0.5">
               Adaptive nudges
             </h3>
           </div>
@@ -923,7 +932,7 @@ export const LiveMonitoringPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* Card 1: Flow detected */}
-            <div className="group relative rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md flex items-start gap-4 hover:scale-[1.01] hover:bg-slate-950/30 transition-all duration-300 select-none text-left">
+            <div className="group relative rounded-2xl border border-white/10 bg-slate-950/20 p-5 backdrop-blur-md flex items-start gap-4 hover:scale-[1.01] hover:bg-slate-950/20 transition-all duration-300 select-none text-left">
               <div className={`flex h-9 w-9 items-center justify-center rounded-xl border ${isSessionActive && latestMetric?.attention_state === 'Focused' && latestMetric.focus_score >= 70 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/5 border-white/10 text-zinc-500'}`}>
                 <Sparkles className={`h-4.5 w-4.5 ${isSessionActive && latestMetric?.attention_state === 'Focused' && latestMetric.focus_score >= 70 ? 'animate-pulse' : ''}`} />
               </div>
@@ -934,7 +943,7 @@ export const LiveMonitoringPage: React.FC = () => {
                     : (latestMetric?.attention_state === 'Distracted' || latestMetric?.ui_attention_label === 'Away') ? 'Focus interruption detected' 
                     : 'Not in flow'}
                 </h4>
-                <p className="text-[11px] text-zinc-450 font-semibold mt-0.5 leading-relaxed">
+                <p className="text-[11px] text-zinc-400 font-semibold mt-0.5 leading-relaxed">
                   {!isSessionActive ? 'Start a monitoring session to receive adaptive nudges.' 
                     : latestMetric?.attention_state === 'Focused' && latestMetric.focus_score >= 70 ? 'Stable focus detected. Continue current work block.' 
                     : (latestMetric?.attention_state === 'Distracted' || latestMetric?.ui_attention_label === 'Away') ? 'Consider removing distractions or taking a short reset.' 
@@ -944,7 +953,7 @@ export const LiveMonitoringPage: React.FC = () => {
             </div>
 
             {/* Card 2: Posture Alert */}
-            <div className="group relative rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md flex items-start gap-4 hover:scale-[1.01] hover:bg-slate-950/30 transition-all duration-300 select-none text-left">
+            <div className="group relative rounded-2xl border border-white/10 bg-slate-950/20 p-5 backdrop-blur-md flex items-start gap-4 hover:scale-[1.01] hover:bg-slate-950/20 transition-all duration-300 select-none text-left">
               <div className={`flex h-9 w-9 items-center justify-center rounded-xl border ${isSessionActive && latestMetric?.posture_status === 'Slouched' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400'}`}>
                 <AlertTriangle className={`h-4.5 w-4.5 ${isSessionActive && latestMetric?.posture_status === 'Slouched' ? 'animate-pulse' : ''}`} />
               </div>
@@ -952,7 +961,7 @@ export const LiveMonitoringPage: React.FC = () => {
                 <h4 className="text-xs font-semibold text-zinc-200 group-hover:text-cyan-400 transition-colors">
                   Posture drift
                 </h4>
-                <p className="text-[11px] text-zinc-450 font-semibold mt-0.5 leading-relaxed">
+                <p className="text-[11px] text-zinc-400 font-semibold mt-0.5 leading-relaxed">
                   {!isSessionActive || !latestMetric ? 'Posture unavailable'
                     : latestMetric.ui_posture_label === 'Upright' ? 'Posture stable'
                     : latestMetric.ui_posture_label === 'Unknown' ? 'Posture unavailable'
@@ -962,7 +971,7 @@ export const LiveMonitoringPage: React.FC = () => {
             </div>
 
             {/* Card 3: Load rising */}
-            <div className="group relative rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md flex items-start gap-4 hover:scale-[1.01] hover:bg-slate-950/30 transition-all duration-300 select-none text-left">
+            <div className="group relative rounded-2xl border border-white/10 bg-slate-950/20 p-5 backdrop-blur-md flex items-start gap-4 hover:scale-[1.01] hover:bg-slate-950/20 transition-all duration-300 select-none text-left">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400">
                 <Activity className="h-4.5 w-4.5 animate-pulse" />
               </div>
@@ -973,7 +982,7 @@ export const LiveMonitoringPage: React.FC = () => {
                 
                 {isSessionActive && latestMetric ? (
                   <div className="flex flex-col gap-2 mt-1">
-                    <p className="text-[11px] text-zinc-450 font-semibold leading-relaxed">
+                    <p className="text-[11px] text-zinc-400 font-semibold leading-relaxed">
                       Cognitive workload index: {latestMetric.cognitive_load || '--'}%
                     </p>
                     <div className="text-[10px] text-zinc-500 font-mono flex flex-col gap-0.5">
@@ -982,7 +991,7 @@ export const LiveMonitoringPage: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[11px] text-zinc-450 font-semibold mt-0.5 leading-relaxed">
+                  <p className="text-[11px] text-zinc-400 font-semibold mt-0.5 leading-relaxed">
                     Waiting for telemetry
                   </p>
                 )}
@@ -990,7 +999,7 @@ export const LiveMonitoringPage: React.FC = () => {
             </div>
 
             {/* Card 4: Extension Domain Active Context */}
-            <div className="group relative rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md flex items-start gap-4 hover:scale-[1.01] hover:bg-slate-950/30 transition-all duration-300 select-none text-left">
+            <div className="group relative rounded-2xl border border-white/10 bg-slate-950/20 p-5 backdrop-blur-md flex items-start gap-4 hover:scale-[1.01] hover:bg-slate-950/20 transition-all duration-300 select-none text-left">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
                 <Globe className="h-4.5 w-4.5" />
               </div>
@@ -1001,7 +1010,7 @@ export const LiveMonitoringPage: React.FC = () => {
                 
                 {isSessionActive && extensionActivity ? (
                   <div className="flex flex-col gap-2 mt-1 w-full">
-                    <p className="text-[11px] text-zinc-450 font-semibold leading-relaxed truncate">
+                    <p className="text-[11px] text-zinc-400 font-semibold leading-relaxed truncate">
                       Active: <span className="text-white">{extensionActivity.domain}</span>
                     </p>
                     <div className="text-[10px] text-zinc-500 font-mono flex flex-col gap-0.5">
@@ -1012,7 +1021,7 @@ export const LiveMonitoringPage: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[11px] text-zinc-450 font-semibold mt-0.5 leading-relaxed">
+                  <p className="text-[11px] text-zinc-400 font-semibold mt-0.5 leading-relaxed">
                     Waiting for extension link
                   </p>
                 )}
@@ -1027,13 +1036,13 @@ export const LiveMonitoringPage: React.FC = () => {
       {/* ================= SESSION END SUMMARY MODAL (Requirement 6) ================= */}
       <AnimatePresence>
         {showSummaryModal && summaryData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
             <motion.div 
               initial={{ scale: 0.92, y: 15, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.92, y: 15, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="w-full max-w-xl rounded-3xl border border-white/10 bg-slate-950/90 p-7 shadow-2xl relative overflow-hidden text-left"
+              className="w-full max-w-xl rounded-3xl border border-white/10 bg-[#03030b]/90 p-7 shadow-2xl relative overflow-hidden text-left"
             >
               {/* atmospheric soft glows inside modal */}
               <div className="absolute -top-1/4 -right-1/4 w-52 h-52 rounded-full bg-cyan-500/10 blur-[80px]" />
@@ -1041,7 +1050,7 @@ export const LiveMonitoringPage: React.FC = () => {
               
               <div className="relative z-10 flex flex-col gap-6">
                 {/* Header */}
-                <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
                   <div className="flex flex-col">
                     <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest animate-pulse">Tracking complete</span>
                     <h3 className="text-lg font-black text-white tracking-tight mt-0.5">Session Summary</h3>
@@ -1052,7 +1061,7 @@ export const LiveMonitoringPage: React.FC = () => {
                 </div>
 
                 {/* Premium Main Row: Circular SVG Gauge & Dialog Bubble */}
-                <div className="flex flex-col md:flex-row items-center gap-6 bg-white/[0.02] border border-white/5 rounded-2xl p-5 backdrop-blur-md">
+                <div className="flex flex-col md:flex-row items-center gap-6 bg-white/[0.02] border border-white/10 rounded-2xl p-5 backdrop-blur-md">
                   {/* Gauge */}
                   <div className="relative flex items-center justify-center h-28 w-28 shrink-0 select-none">
                     <svg className="h-24 w-24 transform -rotate-90" viewBox="0 0 100 100">
@@ -1101,8 +1110,8 @@ export const LiveMonitoringPage: React.FC = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   
                   {/* Focus Consistency */}
-                  <div className="rounded-xl border border-white/5 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
-                    <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block leading-none">Focus Consistency</span>
+                  <div className="rounded-xl border border-white/10 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
+                    <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest block leading-none">Focus Consistency</span>
                     <span className="text-base font-extrabold text-cyan-400 mt-1.5 block leading-none font-mono">
                       {summaryData.isPoorTracking ? '--' : `${summaryData.consistency}%`}
                     </span>
@@ -1110,8 +1119,8 @@ export const LiveMonitoringPage: React.FC = () => {
                   </div>
 
                   {/* Avg Focus */}
-                  <div className="rounded-xl border border-white/5 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
-                    <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block leading-none">Average Focus</span>
+                  <div className="rounded-xl border border-white/10 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
+                    <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest block leading-none">Average Focus</span>
                     <span className="text-base font-extrabold text-cyan-400 mt-1.5 block leading-none font-mono">
                       {summaryData.isPoorTracking ? '--' : `${summaryData.avgFocus}%`}
                     </span>
@@ -1119,8 +1128,8 @@ export const LiveMonitoringPage: React.FC = () => {
                   </div>
 
                   {/* Peak Focus */}
-                  <div className="rounded-xl border border-white/5 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
-                    <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block leading-none">Peak Focus</span>
+                  <div className="rounded-xl border border-white/10 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
+                    <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest block leading-none">Peak Focus</span>
                     <span className="text-base font-extrabold text-white mt-1.5 block leading-none font-mono">
                       {summaryData.isPoorTracking ? '--' : `${summaryData.peakFocus}%`}
                     </span>
@@ -1130,8 +1139,8 @@ export const LiveMonitoringPage: React.FC = () => {
                   </div>
 
                   {/* Telemetry Quality */}
-                  <div className="rounded-xl border border-white/5 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
-                    <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block leading-none">Telemetry Quality</span>
+                  <div className="rounded-xl border border-white/10 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
+                    <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest block leading-none">Telemetry Quality</span>
                     <span className={`text-sm font-extrabold mt-1.5 block leading-none uppercase ${summaryData.telemetryQuality === 'Excellent' ? 'text-emerald-400' : summaryData.telemetryQuality === 'Good' ? 'text-cyan-400' : summaryData.telemetryQuality === 'Partial' ? 'text-yellow-400' : 'text-rose-400'}`}>
                       {summaryData.telemetryQuality}
                     </span>
@@ -1141,26 +1150,26 @@ export const LiveMonitoringPage: React.FC = () => {
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {/* Total Samples */}
-                  <div className="rounded-xl border border-white/5 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
-                    <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block leading-none">Telemetry Samples</span>
-                    <span className="text-base font-extrabold text-zinc-100 mt-1.5 block leading-none font-mono">
+                  <div className="rounded-xl border border-white/10 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
+                    <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest block leading-none">Telemetry Samples</span>
+                    <span className="text-base font-extrabold text-white mt-1.5 block leading-none font-mono">
                       {summaryData.totalSamples}
                     </span>
                     <span className="text-[7px] font-medium text-zinc-500 mt-1 block">Total datapoints logged</span>
                   </div>
 
                   {/* Duration */}
-                  <div className="rounded-xl border border-white/5 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
-                    <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block leading-none">Duration</span>
-                    <span className="text-base font-extrabold text-zinc-100 mt-1.5 block leading-none font-mono">
+                  <div className="rounded-xl border border-white/10 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
+                    <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest block leading-none">Duration</span>
+                    <span className="text-base font-extrabold text-white mt-1.5 block leading-none font-mono">
                       {summaryData.duration}
                     </span>
                     <span className="text-[7px] font-medium text-zinc-500 mt-1 block">Active track time</span>
                   </div>
 
                   {/* Fatigue Trend */}
-                  <div className="rounded-xl border border-white/5 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
-                    <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block leading-none">Fatigue Trend</span>
+                  <div className="rounded-xl border border-white/10 bg-slate-900/40 p-3.5 hover:border-cyan-500/10 hover:bg-slate-900/60 transition-colors">
+                    <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest block leading-none">Fatigue Trend</span>
                     <span className="text-base font-extrabold text-amber-400 mt-1.5 block leading-none">
                       {summaryData.fatigueTrend}
                     </span>

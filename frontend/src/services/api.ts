@@ -112,13 +112,29 @@ export interface UserProfileDetails {
 export const getCurrentUserProfile = (): UserProfileDetails => {
   const session = getLocalSession();
   const emailVal = session.email || 'aarav@cognivue.ai';
+  const userId = session.userId || 'default';
   
-  // Extract display name (capitalized first part of email, or custom default if no @)
-  const isEmail = emailVal.includes('@');
-  const rawName = isEmail ? emailVal.split('@')[0] : emailVal;
+  const profileKey = `cognivue_profile_${userId}`;
+  let rawName = '';
   
-  // Capitalize name
-  const displayName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+  try {
+    const storedStr = localStorage.getItem(profileKey);
+    if (storedStr) {
+      const parsed = JSON.parse(storedStr);
+      rawName = parsed.displayName || '';
+    }
+  } catch (e) {
+    // Ignore JSON parse errors
+  }
+  
+  if (!rawName) {
+    // Extract display name (capitalized first part of email, or custom default if no @)
+    const isEmail = emailVal.includes('@');
+    rawName = isEmail ? emailVal.split('@')[0] : emailVal;
+    rawName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+  }
+  
+  const displayName = rawName;
   
   // Get first two characters for initials
   const initials = displayName.substring(0, 2).toUpperCase();
@@ -173,6 +189,16 @@ export async function loginUser(email: string, password: string): Promise<LoginR
     }),
   });
   return handleResponse<LoginResponse>(response);
+}
+
+export async function deleteUserAccount(userId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/account/${userId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  return handleResponse<void>(response);
 }
 
 // --- FOCUS SESSION APIS ---
@@ -389,9 +415,9 @@ export interface FatigueCorrelationPoint {
 }
 
 export interface ProductivityPatternPoint {
-  domain: string;
+  category: string;
   score: number;
-  full_mark: number;
+  full_mark?: number;
 }
 
 export interface AdvancedAIInsightsResponse {

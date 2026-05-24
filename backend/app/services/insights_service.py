@@ -3,6 +3,7 @@ import math
 from uuid import UUID
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
+from fastapi.encoders import jsonable_encoder
 from app.database import supabase
 from app.services.session_service import SessionService
 from app.schemas.insights_schema import (
@@ -55,6 +56,7 @@ class InsightsService:
         Generates highly personalized wellness and focus insights based on historical
         sessions and instantaneous cognitive telemetry. Returns clean defaults if no data.
         """
+        logger.info(f"Generating AI insights for user_id... {user_id}")
         generated_time = datetime.now(timezone.utc).isoformat()
         
         # 1. Fallback Default Response
@@ -490,18 +492,33 @@ class InsightsService:
 
             # D. Productivity Patterns (Radar chart data)
             productivity_patterns = []
-            real_domains = defaultdict(list)
+            real_categories = defaultdict(list)
+            
+            def normalize_category(raw_str: str) -> str:
+                if not raw_str: return "Deep Work"
+                s = raw_str.lower()
+                if "code" in s or "dev" in s or "program" in s or "github" in s: return "Coding"
+                if "study" in s or "learn" in s or "course" in s: return "Studying"
+                if "research" in s or "search" in s or "google" in s: return "Research"
+                if "meet" in s or "call" in s or "zoom" in s or "teams" in s: return "Meeting"
+                if "plan" in s or "org" in s or "admin" in s or "manage" in s: return "Planning"
+                if "read" in s or "doc" in s or "article" in s or "blog" in s: return "Reading"
+                if "creat" in s or "design" in s or "art" in s or "figma" in s: return "Creative"
+                if "deep" in s or "focus" in s: return "Deep Work"
+                return raw_str.title()
+
             for s in ended_sessions:
                 s_type = s.get("session_type")
                 if s_type:
-                    real_domains[s_type].append(s.get("productivity_score") or 0)
+                    norm = normalize_category(s_type)
+                    # We assume score is productivity, fallback to focus if prod missing
+                    score = s.get("productivity_score") or s.get("focus_score") or 0
+                    real_categories[norm].append(score)
                     
-            if real_domains:
-                for dom, scores in real_domains.items():
+            if real_categories:
+                for cat, scores in real_categories.items():
                     avg_sc = sum(scores) / len(scores)
-                    productivity_patterns.append(ProductivityPatternPoint(domain=dom, score=int(avg_sc), full_mark=100))
-            else:
-                productivity_patterns = []
+                    productivity_patterns.append(ProductivityPatternPoint(category=cat, score=int(avg_sc), full_mark=100))
 
             # 12. Build Response Payload
             response_payload = AdvancedAIInsightsResponse(
@@ -530,24 +547,58 @@ class InsightsService:
                 productivity_patterns=productivity_patterns
             )
 
-            # 12. Save Generated Output (Non-crashing DB backup)
+            # 12. Save Generated Output
             try:
+                print(f"Saving AI insights to Supabase for user_id: {user_id}...")
+                logger.info(f"Saving AI insights to Supabase for user_id: {user_id}...")
+
+                # Determine confidence level based on session count
+                if total_sessions >= 20:
+                    confidence_level = "high"
+                elif total_sessions >= 5:
+                    confidence_level = "medium"
+                else:
+                    confidence_level = "low"
+
                 insight_record = {
                     "user_id": str(user_id),
                     "summary": overall_summary,
-                    "burnout_risk": float(round(burnout_risk, 1)),
-                    "recommendations": recommendations_list,
-                    "generated_at": generated_time
+                    "insights": jsonable_encoder(insights_list),
+                    "recommendations": jsonable_encoder(recommendations_list),
+                    "focus_drift_timeline": jsonable_encoder(focus_drift_timeline),
+                    "weekly_trends": jsonable_encoder(weekly_trends),
+                    "productivity_patterns": jsonable_encoder(productivity_patterns),
+                    "fatigue_correlation": jsonable_encoder(fatigue_correlation),
+                    "confidence_level": confidence_level,
+                    "generated_at": generated_time,
+                    "burnout_risk": round(burnout_risk, 1),
                 }
-                # Supabase insert
-                supabase.table("ai_insights").insert(insight_record).execute()
-                logger.info("Successfully saved generated insights into Supabase table 'ai_insights'")
+
+                # Log full payload for verification
+                print(f"[AI Insights] Inserting payload for user {user_id}:")
+                print(f"  summary       : {overall_summary[:120]}...")
+                print(f"  burnout_risk  : {round(burnout_risk, 1)}")
+                print(f"  confidence    : {confidence_level}")
+                print(f"  insights count: {len(insights_list)}")
+                print(f"  rec count     : {len(recommendations_list)}")
+                print(f"  generated_at  : {generated_time}")
+
+                # Upsert on user_id so regenerating replaces the existing row
+                res = supabase.table("ai_insights").upsert(
+                    insight_record,
+                    on_conflict="user_id"
+                ).execute()
+
+                if res.data:
+                    print(f"[AI Insights] Saved successfully — id: {res.data[0].get('id', 'unknown')}")
+                    logger.info(f"AI insights saved successfully for user_id: {user_id}")
+                else:
+                    print(f"[AI Insights] Insert returned no data — possible RLS or schema mismatch. Response: {res}")
+                    logger.warning(f"AI insights insert returned no data: {res}")
+
             except Exception as db_err:
-                # Catching any missing table/column database errors safely
-                logger.warning(
-                    f"Skipping database persistence: Supabase insert into 'ai_insights' failed or table doesn't exist yet ({str(db_err)}). "
-                    f"Returning generated analytical payload directly from API."
-                )
+                print(f"[AI Insights] Insertion error for user {user_id}: {str(db_err)}")
+                logger.error(f"Insertion error details for ai_insights: {str(db_err)}")
 
             return response_payload
 

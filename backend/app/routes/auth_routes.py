@@ -32,3 +32,12 @@ async def get_me():
             "email": "demo@cognivue.ai"
         }
     }
+
+@router.delete("/account/{user_id}", status_code=status.HTTP_200_OK)
+async def delete_account(user_id: str):
+    """
+    Deletes the user's account and wipes their data safely.
+    """
+    result = await AuthService.delete_user_account(user_id)
+    return result
+

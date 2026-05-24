@@ -48,7 +48,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({ insights, isLoadin
   };
 
   return (
-    <div className="w-full rounded-2xl border border-white/5 bg-slate-950/20 p-5 backdrop-blur-md shadow-lg select-none text-left relative overflow-hidden flex flex-col justify-between h-[380px]">
+    <div className="w-full rounded-2xl border border-white/10 bg-slate-950/20 p-5 backdrop-blur-md shadow-lg select-none text-left relative overflow-hidden flex flex-col justify-between h-[380px]">
       <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.005] via-transparent to-transparent pointer-events-none" />
 
       {/* Header labels */}
@@ -80,7 +80,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({ insights, isLoadin
             return (
               <div 
                 key={idx}
-                className="group relative flex items-start gap-3.5 p-3 rounded-xl border border-white/[0.02] bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/5 transition-all duration-300 overflow-hidden"
+                className="group relative flex items-start gap-3.5 p-3 rounded-xl border border-white/[0.02] bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/10 transition-all duration-300 overflow-hidden"
               >
                 {/* Soft card gradient backlighting */}
                 <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.005] via-transparent to-transparent pointer-events-none" />

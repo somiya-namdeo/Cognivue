@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Brain, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { loginUser, saveSession, initUser } from '../services/api';
 
 export const LoginPage = () => {
@@ -31,7 +31,9 @@ export const LoginPage = () => {
       // Redirect to dashboard
       navigate('/dashboard');
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Invalid email or password.';
+      let errorMessage = err instanceof Error ? err.message : 'Invalid email or password.';
+
+      
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -39,7 +41,7 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="relative min-h-screen lg:h-screen w-full flex items-center justify-center bg-transparent text-zinc-300 overflow-hidden selection:bg-cyan-500/20 selection:text-cyan-300 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen lg:h-screen w-full flex items-center justify-center bg-transparent text-zinc-400 overflow-hidden selection:bg-cyan-500/20 selection:text-cyan-300 px-4 py-8 sm:px-6 lg:px-8">
       
       {/* ================= BACKGROUND SYSTEM ================= */}
       {/* 1. Base Grid Layer */}
@@ -91,11 +93,8 @@ export const LoginPage = () => {
         >
           {/* Logo & Back Link Row */}
           <div className="flex items-center justify-between">
-            <Link to="/" className="inline-flex items-center gap-2 group hover:opacity-90 transition-opacity">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-violet-500/20 border border-cyan-500/30 shadow-[0_0_8px_rgba(6,182,212,0.1)]">
-                <Brain className="h-4 w-4 text-cyan-400" />
-              </div>
-              <span className="font-sans text-base font-bold tracking-tight text-white">Cognivue</span>
+            <Link to="/" className="inline-flex items-center group hover:opacity-90 transition-opacity">
+              <img src="/logo.png" alt="Cognivue Logo" className="h-14 w-auto drop-shadow-[0_0_15px_rgba(6,182,212,0.15)]" />
             </Link>
             <Link to="/" className="inline-flex items-center text-xs font-medium text-zinc-500 hover:text-cyan-400 transition-colors select-none">
               ← Back to home
@@ -126,7 +125,7 @@ export const LoginPage = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@cognivue.ai"
-                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] text-sm text-white placeholder:text-zinc-555 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium disabled:opacity-50"
+                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.02] text-sm text-white placeholder:text-zinc-555 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium disabled:opacity-50"
                 />
               </div>
             </div>
@@ -145,7 +144,7 @@ export const LoginPage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-11 pr-11 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] text-sm text-white placeholder:text-zinc-555 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium disabled:opacity-50"
+                  className="w-full pl-11 pr-11 py-2.5 rounded-xl border border-white/10 bg-white/[0.02] text-sm text-white placeholder:text-zinc-555 focus:outline-none focus:ring-1.5 focus:ring-cyan-500/25 focus:border-cyan-400/45 transition-all font-medium disabled:opacity-50"
                 />
                 <button
                   type="button"
@@ -227,7 +226,7 @@ export const LoginPage = () => {
           transition={{ duration: 0.7, ease: 'easeOut', delay: 0.1 }}
         >
           {/* Glass Card */}
-          <div className="relative w-full max-w-[380px] rounded-2xl border border-white/5 bg-slate-950/20 p-6 sm:p-7 backdrop-blur-md shadow-2xl select-none text-left overflow-hidden">
+          <div className="relative w-full max-w-[380px] rounded-2xl border border-white/10 bg-slate-950/20 p-6 sm:p-7 backdrop-blur-md shadow-2xl select-none text-left overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/2 via-violet-500/2 to-transparent pointer-events-none" />
 
             {/* Label */}
