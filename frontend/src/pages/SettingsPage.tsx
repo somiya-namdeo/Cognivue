@@ -23,11 +23,14 @@ export const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeItem, setActiveItem] = useState('Settings');
   
+  const userId = localStorage.getItem('user_id') || 'anonymous';
+  const notifKey = `cognivue_notifications_enabled_${userId}`;
+
   // States
   const [displayName, setDisplayName] = useState(() => profile.displayName);
   const [webcamPermStatus, setWebcamPermStatus] = useState<string>('Unknown');
   const [shareData, setShareData] = useState(() => localStorage.getItem('share_research_data') === 'true');
-  const [notifications, setNotifications] = useState(() => localStorage.getItem('coach_notifications') !== 'false');
+  const [notifications, setNotifications] = useState(() => localStorage.getItem(notifKey) !== 'false');
   
 
   
@@ -106,8 +109,8 @@ export const SettingsPage: React.FC = () => {
   }, [shareData]);
 
   useEffect(() => {
-    localStorage.setItem('coach_notifications', notifications.toString());
-  }, [notifications]);
+    localStorage.setItem(notifKey, notifications.toString());
+  }, [notifications, notifKey]);
 
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -319,10 +322,8 @@ export const SettingsPage: React.FC = () => {
 
               </div>
             </div>
-
-              </div>
-            </div>
-
+          </div>
+        </div>
       </div>
 
       {/* Edit Profile Modal */}

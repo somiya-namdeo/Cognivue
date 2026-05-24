@@ -9,6 +9,7 @@ from app.routes.db_test_routes import router as db_test_router
 from app.routes.analytics_routes import router as analytics_router
 from app.routes.extension_routes import router as extension_router
 from app.routes.behavior_routes import router as behavior_router
+from app.config import settings
 
 app = FastAPI(
     title="Cognivue API",
@@ -16,11 +17,19 @@ app = FastAPI(
     description="Cognivue Backend API for real-time focus, fatigue, and cognitive analytics."
 )
 
-# CORS configuration
+# CORS configuration — reads from FRONTEND_URL env var for production
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
 ]
+
+# Add production frontend URL from env if set
+_frontend_url = settings.FRONTEND_URL.strip()
+if _frontend_url and _frontend_url not in origins:
+    origins.append(_frontend_url)
+    # Also add www variant if it's an https domain
+    if _frontend_url.startswith("https://") and not _frontend_url.startswith("https://www."):
+        origins.append(_frontend_url.replace("https://", "https://www."))
 
 app.add_middleware(
     CORSMiddleware,

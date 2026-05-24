@@ -79,6 +79,11 @@ export const pushNotification = (
   targetRoute?: string
 ): void => {
   try {
+    const userId = localStorage.getItem('user_id') || 'anonymous';
+    const notifKey = `cognivue_notifications_enabled_${userId}`;
+    const coachNotificationsEnabled = localStorage.getItem(notifKey) !== 'false';
+    if (!coachNotificationsEnabled) return;
+
     const current = getNotifications();
     const now = Date.now();
 

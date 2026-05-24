@@ -212,7 +212,7 @@ export const AIInsightsPage: React.FC = () => {
             <div className="h-10 bg-white/10 rounded w-1/4 mb-3"></div>
             <div className="h-4 bg-white/5 rounded w-1/2"></div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
             {[...Array(5)].map((_, idx) => (
               <div key={idx} className="rounded-2xl border border-white/10 bg-slate-950/20 p-5">
                 <div className="h-3 bg-white/10 rounded w-2/3 mb-4"></div>
@@ -306,7 +306,7 @@ export const AIInsightsPage: React.FC = () => {
         {/* ================= CALIBRATION BANNER REMOVED (Progressive fallback applied) ================= */}
 
         {/* ================= 1. COGNITIVE SUMMARY CARDS ================= */}
-        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-5 gap-5 mt-2">
+        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mt-2">
           {cognitiveScores.map((score, sIdx) => (
             <div key={sIdx} className="rounded-2xl border border-white/10 bg-slate-950/20 p-5 backdrop-blur-md select-none text-left flex flex-col justify-between shadow-[0_4px_30px_rgba(0,0,0,0.4)] hover:border-white/10 transition-all duration-300">
               <div>
@@ -510,7 +510,11 @@ export const AIInsightsPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {insightsData.insights.slice(0, 6).map((rec: AIInsightCard, idx: number) => {
+            {insightsData.insights.length === 0 ? (
+              <div className="col-span-1 md:col-span-3 py-10 text-center text-zinc-400 font-semibold text-sm border border-white/[0.05] rounded-2xl bg-white/[0.02]">
+                No AI recommendations available yet. Complete more sessions to generate insights.
+              </div>
+            ) : insightsData.insights.slice(0, 6).map((rec: AIInsightCard, idx: number) => {
               const Icon = categoryIcons[rec.category] || BookOpen;
               const styles = getSeverityStyles(rec.severity);
 

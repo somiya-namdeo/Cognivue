@@ -22,6 +22,7 @@ import { pushNotification } from '../services/notifications';
 
 export const ExtensionPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState('Extension');
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -65,7 +66,10 @@ export const ExtensionPage: React.FC = () => {
             }
           }
         })
-        .catch(err => console.warn("Could not fetch extension activity", err));
+        .catch(err => {
+          console.warn("Could not fetch extension activity", err);
+          setFetchError("Could not connect to backend to check extension status.");
+        });
     }
   }, [userId]);
 
@@ -209,7 +213,7 @@ export const ExtensionPage: React.FC = () => {
                 <div className="absolute top-[40%] right-[30%] w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
 
                 {/* THE POPUP ELEMENT: Highly premium layout styling */}
-                <div className="w-[320px] rounded-xl border border-white/10 bg-[#05050f]/90 p-5 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.8)] text-left flex flex-col gap-4 relative">
+                <div className="w-full max-w-[320px] rounded-xl border border-white/10 bg-[#05050f]/90 p-5 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.8)] text-left flex flex-col gap-4 relative">
                   
                   {/* Logo + Version */}
                   <div className="flex items-center justify-between">
@@ -337,6 +341,14 @@ export const ExtensionPage: React.FC = () => {
                 <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 bg-white/5 border border-white/10 px-2 py-1 rounded-md">Waiting for connection</span>
               )}
             </h4>
+            
+            {fetchError && (
+              <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-4 mb-2">
+                <p className="text-sm font-semibold text-rose-400">
+                  {fetchError}
+                </p>
+              </div>
+            )}
             
             {mismatchWarning && (
               <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-4 mb-2">

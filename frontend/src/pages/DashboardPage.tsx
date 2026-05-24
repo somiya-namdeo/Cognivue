@@ -402,7 +402,7 @@ export const DashboardPage: React.FC = () => {
             {/* 3. Primary row: Attention vs load & coach insights */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
               <div className="lg:col-span-8 w-full">
-                <AttentionLoadChart data={analytics?.focus_trend} />
+                <AttentionLoadChart data={analytics?.focus_trend ?? []} />
               </div>
               <div className="lg:col-span-4 w-full">
                 <InsightsPanel insights={derivedInsights} isLoading={isLoading} />
@@ -412,7 +412,7 @@ export const DashboardPage: React.FC = () => {
             {/* 4. Secondary row: Focus vs productivity & realtime timeline */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
               <div className="lg:col-span-6 w-full">
-                <FocusProductivityChart data={analytics?.productivity_trend} />
+                <FocusProductivityChart data={analytics?.productivity_trend ?? []} />
               </div>
               <div className="lg:col-span-6 w-full">
                 <RealtimeLoadChart />
@@ -420,7 +420,7 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {/* 5. Tertiary row: Recent sessions history table */}
-            <SessionsTable sessions={analytics?.recent_sessions} />
+            <SessionsTable sessions={analytics?.recent_sessions ?? []} />
 
           </motion.div>
         );

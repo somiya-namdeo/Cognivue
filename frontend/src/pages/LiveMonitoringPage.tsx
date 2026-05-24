@@ -711,8 +711,8 @@ export const LiveMonitoringPage: React.FC = () => {
               <span className="text-[10px] font-bold text-zinc-400 leading-none mt-0.5">MediaPipe FaceMesh · 30fps</span>
             </div>
           </div>
-          {/* Debug UI: show active session ID preview */}
-          {activeSessionId && (
+          {/* Debug UI: only visible in dev builds */}
+          {import.meta.env.DEV && activeSessionId && (
             <div className="fixed top-2 right-2 text-xs text-zinc-400 font-mono bg-black/30 backdrop-blur-md px-2 py-1 rounded">
               Session: {activeSessionId.slice(0, 8)}
             </div>
@@ -743,7 +743,6 @@ export const LiveMonitoringPage: React.FC = () => {
               </div>
 
               {/* Bottom control bar */}
-              <div className="text-xs font-bold text-zinc-400 mb-2">CV Stream: {streamStatus}</div>
               <div className="border-t border-white/[0.04] bg-slate-950 px-6 py-4.5 flex items-center justify-between z-10">
                 {/* Focus score readout */}
                 <div className="flex flex-col gap-0.5 text-left">

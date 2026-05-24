@@ -314,7 +314,7 @@ export const SessionsPage: React.FC = () => {
         className="flex flex-col gap-8 text-left"
       >
         {/* ================= TOP TITLE SECTION ================= */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex flex-col text-left">
             <div className="flex items-center gap-3.5">
               <h2 className="font-sans text-[40px] font-bold tracking-tight leading-none text-white select-none antialiased">
@@ -348,6 +348,13 @@ export const SessionsPage: React.FC = () => {
             >
               <X className="h-4 w-4" />
             </button>
+          </div>
+        )}
+
+        {/* ================= GLOBAL EMPTY STATE ================= */}
+        {!isLoading && sessions.length === 0 && !error && (
+          <div className="rounded-xl border border-white/10 bg-slate-950/20 p-6 text-center text-zinc-400 font-semibold text-sm">
+            No sessions recorded yet. Start a monitoring session to populate your history.
           </div>
         )}
 
@@ -401,7 +408,7 @@ export const SessionsPage: React.FC = () => {
 
           <div className="flex items-center gap-4">
             {/* 4. Load filter tabs toggle */}
-            <div className="flex items-center rounded-xl border border-white/10 bg-slate-950/20 p-1 backdrop-blur-md">
+            <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-slate-950/20 p-1 backdrop-blur-md">
               {['All', 'Low Load', 'Medium Load', 'High Load'].map((tab) => (
                 <button
                   key={tab}
