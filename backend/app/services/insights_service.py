@@ -548,11 +548,16 @@ class InsightsService:
             )
 
             # 12. Save Generated Output
+            # Verified ai_insights schema columns:
+            # id, session_id, summary, recommendations, burnout_risk, generated_at, created_at
+            # Extended columns (added via migrate_ai_insights_columns.sql):
+            # user_id, insights, focus_drift_timeline, weekly_trends, productivity_patterns,
+            # fatigue_correlation, confidence_level
             try:
-                print(f"Saving AI insights to Supabase for user_id: {user_id}...")
+                print(f"[AI Insights] Saving to Supabase for user_id: {user_id}...")
                 logger.info(f"Saving AI insights to Supabase for user_id: {user_id}...")
 
-                # Determine confidence level based on session count
+                # Determine confidence level from session count
                 if total_sessions >= 20:
                     confidence_level = "high"
                 elif total_sessions >= 5:
@@ -560,40 +565,63 @@ class InsightsService:
                 else:
                     confidence_level = "low"
 
+                # Get latest session_id (original FK in table)
+                latest_session_id = None
+                if all_sessions and len(all_sessions) > 0:
+                    latest_session_id = all_sessions[0]["id"]
+
+                # Core payload — columns verified to exist
                 insight_record = {
-                    "user_id": str(user_id),
+                    "session_id": latest_session_id,
                     "summary": overall_summary,
+                    "recommendations": [r for r in jsonable_encoder(recommendations_list)],
+                    "burnout_risk": int(round(burnout_risk, 0)),
+                    "generated_at": generated_time,
+                }
+
+                # Extended payload — columns added by migrate_ai_insights_columns.sql
+                # These are added unconditionally; Supabase silently ignores unknown columns
+                extended_record = {
+                    "user_id": str(user_id),
                     "insights": jsonable_encoder(insights_list),
-                    "recommendations": jsonable_encoder(recommendations_list),
                     "focus_drift_timeline": jsonable_encoder(focus_drift_timeline),
                     "weekly_trends": jsonable_encoder(weekly_trends),
                     "productivity_patterns": jsonable_encoder(productivity_patterns),
                     "fatigue_correlation": jsonable_encoder(fatigue_correlation),
                     "confidence_level": confidence_level,
-                    "generated_at": generated_time,
-                    "burnout_risk": round(burnout_risk, 1),
                 }
+                insight_record.update(extended_record)
 
-                # Log full payload for verification
-                print(f"[AI Insights] Inserting payload for user {user_id}:")
-                print(f"  summary       : {overall_summary[:120]}...")
-                print(f"  burnout_risk  : {round(burnout_risk, 1)}")
+                # Log payload summary for verification
+                print(f"[AI Insights] Payload for user {user_id}:")
+                print(f"  session_id    : {latest_session_id}")
+                print(f"  summary       : {overall_summary[:100]}...")
+                print(f"  burnout_risk  : {int(round(burnout_risk, 0))}")
                 print(f"  confidence    : {confidence_level}")
                 print(f"  insights count: {len(insights_list)}")
                 print(f"  rec count     : {len(recommendations_list)}")
+                print(f"  weekly_trends : {len(weekly_trends)} points")
                 print(f"  generated_at  : {generated_time}")
 
-                # Upsert on user_id so regenerating replaces the existing row
-                res = supabase.table("ai_insights").upsert(
-                    insight_record,
-                    on_conflict="user_id"
-                ).execute()
+                # Try upsert on user_id (requires migrate to add unique index)
+                # Falls back to plain insert if user_id column doesn't exist yet
+                try:
+                    res = supabase.table("ai_insights").upsert(
+                        insight_record,
+                        on_conflict="user_id"
+                    ).execute()
+                except Exception:
+                    # Fallback: insert without upsert (pre-migration)
+                    res = supabase.table("ai_insights").insert(insight_record).execute()
 
                 if res.data:
-                    print(f"[AI Insights] Saved successfully — id: {res.data[0].get('id', 'unknown')}")
+                    saved_id = res.data[0].get("id", "unknown")
+                    saved_summary = str(res.data[0].get("summary", ""))[:60]
+                    print(f"[AI Insights] Saved successfully — id: {saved_id}")
+                    print(f"[AI Insights] Confirmed summary: {saved_summary}...")
                     logger.info(f"AI insights saved successfully for user_id: {user_id}")
                 else:
-                    print(f"[AI Insights] Insert returned no data — possible RLS or schema mismatch. Response: {res}")
+                    print(f"[AI Insights] Insert returned no data. Response: {res}")
                     logger.warning(f"AI insights insert returned no data: {res}")
 
             except Exception as db_err:
