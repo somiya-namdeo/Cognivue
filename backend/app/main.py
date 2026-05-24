@@ -16,19 +16,31 @@ app = FastAPI(
     description="Cognivue Backend API for real-time focus, fatigue, and cognitive analytics."
 )
 
-# CORS configuration — reads from FRONTEND_URL env var for production
+# CORS configuration
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
+    "https://cognivue-pvyiag7et-somiya-namdeo-s-projects.vercel.app",
 ]
 
-# Add production frontend URL from env if set
-_frontend_url = settings.FRONTEND_URL.strip()
-if _frontend_url and _frontend_url not in origins:
-    origins.append(_frontend_url)
-    # Also add www variant if it's an https domain
-    if _frontend_url.startswith("https://") and not _frontend_url.startswith("https://www."):
-        origins.append(_frontend_url.replace("https://", "https://www."))
+# Add dynamic frontend URL from environment if available
+try:
+    frontend_url = settings.FRONTEND_URL.strip()
+
+    if frontend_url and frontend_url not in origins:
+        origins.append(frontend_url)
+
+    # Optional www variant
+    if (
+        frontend_url.startswith("https://")
+        and not frontend_url.startswith("https://www.")
+    ):
+        origins.append(
+            frontend_url.replace("https://", "https://www.")
+        )
+
+except Exception:
+    pass
 
 app.add_middleware(
     CORSMiddleware,
@@ -50,7 +62,4 @@ app.include_router(behavior_router)
 
 @app.get("/", tags=["Health Check"])
 async def health_check():
-    """
-    Health route to verify API operational status.
-    """
     return {"message": "Cognivue backend running"}
