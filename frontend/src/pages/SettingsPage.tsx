@@ -16,6 +16,7 @@ import { DashboardLayout } from '../components/DashboardLayout';
 import { getExtensionActivity, clearActiveSession, deleteUserAccount } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '../hooks/useProfile';
+import { pushNotification } from '../services/notifications';
 
 export const SettingsPage: React.FC = () => {
   const profile = useProfile();
@@ -92,6 +93,12 @@ export const SettingsPage: React.FC = () => {
     triggerToast('Profile changes saved successfully!');
     setShowEditModal(false);
     window.dispatchEvent(new Event('profile_updated'));
+    pushNotification(
+      'Profile Updated',
+      `Your display name has been updated to "${displayName}".`,
+      'success',
+      '/settings'
+    );
   };
 
   useEffect(() => {
@@ -118,6 +125,12 @@ export const SettingsPage: React.FC = () => {
       } catch (e) {
         setIsDeleting(false);
         triggerToast('Failed to delete account. Please try again.');
+        pushNotification(
+          'Account Deletion Failed',
+          'Could not delete account. Please try again or contact support.',
+          'error',
+          '/settings'
+        );
         console.error(e);
       }
     }

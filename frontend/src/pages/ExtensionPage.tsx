@@ -18,6 +18,7 @@ import { DashboardLayout } from '../components/DashboardLayout';
 import { getLocalSession, getExtensionActivity } from '../services/api';
 import type { ExtensionActivityResponse } from '../services/api';
 import { PrivacyManifestoModal } from '../components/PrivacyManifestoModal';
+import { pushNotification } from '../services/notifications';
 
 export const ExtensionPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState('Extension');
@@ -51,6 +52,17 @@ export const ExtensionPage: React.FC = () => {
         .then(data => {
           if (data && data.length > 0) {
             setLatestActivity(data[0]);
+            // Check if last sync is stale (>5 min)
+            const lastSync = new Date(data[0].recorded_at).getTime();
+            const diffMins = (Date.now() - lastSync) / 60000;
+            if (diffMins > 5) {
+              pushNotification(
+                'Extension Offline',
+                `No telemetry received for ${Math.round(diffMins)} minutes. Ensure the browser extension is active.`,
+                'warning',
+                '/extension'
+              );
+            }
           }
         })
         .catch(err => console.warn("Could not fetch extension activity", err));
@@ -224,7 +236,25 @@ export const ExtensionPage: React.FC = () => {
 
                   {/* Play/Pause Button */}
                   <button 
-                    onClick={() => setIsPaused(!isPaused)}
+                    onClick={() => {
+                      const next = !isPaused;
+                      setIsPaused(next);
+                      if (next) {
+                        pushNotification(
+                          'Telemetry Paused',
+                          'Browser activity monitoring has been paused. Resume anytime from the Extension page.',
+                          'info',
+                          '/extension'
+                        );
+                      } else {
+                        pushNotification(
+                          'Telemetry Resumed',
+                          'Browser activity monitoring is active again. Focus tracking is now recording.',
+                          'success',
+                          '/extension'
+                        );
+                      }
+                    }}
                     className={`w-full py-2.5 rounded-lg border flex items-center justify-center gap-2 text-xs font-bold transition-all ${
                       isPaused 
                         ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/15'

@@ -286,6 +286,9 @@ export const LiveMonitoringPage: React.FC = () => {
           if (metric.gaze_status === 'Off Screen') {
             pushNotification('High Distraction Risk', 'You have been distracted or looked away from the screen.', 'warning', '/live-monitoring');
           }
+          if (metric.posture_status === 'Slouched') {
+            pushNotification('Posture Drift Detected', 'You appear to be slouching. Sit upright to maintain alignment and reduce fatigue.', 'warning', '/live-monitoring');
+          }
 
           // Update chart stream
           const historyData = metrics.map((m) => {

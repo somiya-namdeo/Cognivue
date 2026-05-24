@@ -19,6 +19,7 @@ import {
   type AdvancedAIInsightsResponse, 
   type AIInsightCard 
 } from '../services/api';
+import { pushNotification } from '../services/notifications';
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -168,6 +169,14 @@ export const AIInsightsPage: React.FC = () => {
       }
 
       setInsightsData(data);
+      // Notify user insights were generated
+      const burnout = Math.round(data.scores?.burnout_risk ?? 0);
+      pushNotification(
+        'AI Insights Updated',
+        `Your cognitive profile has been refreshed. Burnout risk: ${burnout}%. Check your recommendations.`,
+        'success',
+        '/ai-insights'
+      );
     } catch (err: any) {
       console.error('Error fetching AI insights:', err);
       setError('Unable to generate cognitive insights. Please ensure the analytics backend is running.');

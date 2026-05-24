@@ -1,73 +1,145 @@
+/**
+ * Cognivue Notification Service
+ * Account-scoped, localStorage-backed, zero backend dependency.
+ * 
+ * Storage key: cognivue_notifications_${userId}
+ * Notifications are isolated per user — switching accounts shows different sets.
+ */
+
+export type NotificationType = 'info' | 'warning' | 'error' | 'success';
+
 export interface AppNotification {
   id: string;
+  type: NotificationType;
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'error' | 'success';
-  timestamp: string;
-  route: string;
+  created_at: string;     // ISO string
   read: boolean;
+  targetRoute?: string;   // optional navigation on click
+  // Legacy alias kept for Topbar backward compat
+  timestamp?: string;
+  route?: string;
 }
 
-const STORAGE_KEY = 'cognivue_notifications';
-const EVENT_NAME = 'cognivue_new_notification';
+const EVENT_NAME = 'cognivue_notifications_updated';
+const MAX_NOTIFICATIONS = 30;
+const DEDUP_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
-// Helper to get notifications
+// ─── Storage key (account-scoped) ───────────────────────────────────────────
+
+const getStorageKey = (): string => {
+  const userId = localStorage.getItem('user_id') || 'anonymous';
+  return `cognivue_notifications_${userId}`;
+};
+
+// ─── Read ────────────────────────────────────────────────────────────────────
+
 export const getNotifications = (): AppNotification[] => {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    const parsed = data ? JSON.parse(data) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    const raw = localStorage.getItem(getStorageKey());
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    // Normalize legacy shape and guard every field
+    return parsed.map((n: any): AppNotification => ({
+      id: n?.id ?? Math.random().toString(36).slice(2),
+      type: (['info', 'warning', 'error', 'success'].includes(n?.type) ? n.type : 'info') as NotificationType,
+      title: n?.title ?? 'Notification',
+      message: n?.message ?? '',
+      created_at: n?.created_at ?? n?.timestamp ?? new Date().toISOString(),
+      read: Boolean(n?.read),
+      targetRoute: n?.targetRoute ?? n?.route,
+      timestamp: n?.created_at ?? n?.timestamp,
+      route: n?.targetRoute ?? n?.route,
+    }));
   } catch {
     return [];
   }
 };
 
-// Add a new notification with deduplication (prevent spamming same type within 5 mins)
+// ─── Write ───────────────────────────────────────────────────────────────────
+
+const saveNotifications = (list: AppNotification[]): void => {
+  try {
+    localStorage.setItem(getStorageKey(), JSON.stringify(list));
+    window.dispatchEvent(new CustomEvent(EVENT_NAME));
+  } catch {
+    // Ignore storage quota errors — never crash the app
+  }
+};
+
+// ─── Push ────────────────────────────────────────────────────────────────────
+
+/**
+ * Push a new notification. Deduplicated within DEDUP_WINDOW_MS per title+type.
+ */
 export const pushNotification = (
   title: string,
   message: string,
-  type: 'info' | 'warning' | 'error' | 'success',
-  route: string
-) => {
-  const current = getNotifications();
-  
-  // Deduplicate logic: if a notification with same title exists within last 5 minutes, ignore it
-  const now = new Date();
-  const recentDuplicate = current.find(n => {
-    if (!n || n.title !== title) return false;
-    if (!n.timestamp) return false;
-    const time = new Date(n.timestamp).getTime();
-    if (isNaN(time)) return false;
-    return (now.getTime() - time < 5 * 60 * 1000);
-  });
+  type: NotificationType = 'info',
+  targetRoute?: string
+): void => {
+  try {
+    const current = getNotifications();
+    const now = Date.now();
 
-  if (recentDuplicate) return;
+    // Dedup: ignore if same title+type fired within 5 minutes
+    const isDuplicate = current.some((n) => {
+      if (n.title !== title || n.type !== type) return false;
+      const t = new Date(n.created_at).getTime();
+      return !isNaN(t) && now - t < DEDUP_WINDOW_MS;
+    });
+    if (isDuplicate) return;
 
-  const newNotif: AppNotification = {
-    id: Math.random().toString(36).substring(2, 9),
-    title,
-    message,
-    type,
-    timestamp: now.toISOString(),
-    route,
-    read: false
-  };
+    const nowISO = new Date(now).toISOString();
+    const newNotif: AppNotification = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      type,
+      title,
+      message,
+      created_at: nowISO,
+      read: false,
+      targetRoute,
+      // Legacy aliases
+      timestamp: nowISO,
+      route: targetRoute,
+    };
 
-  const updated = [newNotif, ...current].slice(0, 20); // Keep last 20
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  
-  // Dispatch custom event to update UI immediately
-  window.dispatchEvent(new CustomEvent(EVENT_NAME));
+    const updated = [newNotif, ...current].slice(0, MAX_NOTIFICATIONS);
+    saveNotifications(updated);
+  } catch {
+    // Never crash the app on notification push
+  }
 };
 
-export const markAllAsRead = () => {
-  const current = getNotifications();
-  const updated = current.map(n => ({ ...n, read: true }));
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  window.dispatchEvent(new CustomEvent(EVENT_NAME));
+// ─── Mark as read ────────────────────────────────────────────────────────────
+
+export const markNotificationRead = (id: string): void => {
+  try {
+    const updated = getNotifications().map((n) =>
+      n.id === id ? { ...n, read: true } : n
+    );
+    saveNotifications(updated);
+  } catch {}
 };
 
-export const subscribeToNotifications = (callback: () => void) => {
+export const markAllAsRead = (): void => {
+  try {
+    const updated = getNotifications().map((n) => ({ ...n, read: true }));
+    saveNotifications(updated);
+  } catch {}
+};
+
+// ─── Clear ───────────────────────────────────────────────────────────────────
+
+export const clearAllNotifications = (): void => {
+  try {
+    saveNotifications([]);
+  } catch {}
+};
+
+// ─── Subscribe ───────────────────────────────────────────────────────────────
+
+export const subscribeToNotifications = (callback: () => void): (() => void) => {
   window.addEventListener(EVENT_NAME, callback);
   return () => window.removeEventListener(EVENT_NAME, callback);
 };
