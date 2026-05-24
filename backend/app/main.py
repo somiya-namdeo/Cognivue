@@ -20,8 +20,7 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
-    "https://cognivue-kappa.vercel.app",
-    "https://cognivue-pvyiag7et-somiya-namdeo-s-projects.vercel.app",
+    "https://cognivue-kappa.vercel.app"
 ]
 
 
