@@ -3,8 +3,8 @@
 A privacy-first, on-device cognitive intelligence platform analyzing focus, fatigue, and productivity patterns using local computer vision gaze tracking, biometrics, and active browser tab metrics.
 
 ### Live Deployments
-* Frontend Dashboard: [Add Vercel Link]
-* Backend API Console: [Add Render Link]
+* Frontend Dashboard: cognivue-kappa.vercel.app
+* Backend API Console: https://cognivue-rmlz.onrender.com
 
 ---
 
