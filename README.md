@@ -202,5 +202,5 @@ Designed, engineered, and maintained by Somiya Namdeo.
 I am highly open to collaborating on cognitive intelligence systems, local WebAssembly model optimizations, or premium developer tools.
 
 * Connect on LinkedIn: [Somiya Namdeo](https://linkedin.com)
-* Send an Email: [somiya@example.com](mailto:somiya@example.com)
+* Send an Email: [somiya@example.com](mailto:namdeosomiya@gmail.com)
 * Collaboration & Opportunities: If you are a recruiter, developer, or researcher looking to scale, integrate, or build upon Cognivue, feel free to open an Issue, submit a Pull Request, or reach out directly!
