@@ -90,18 +90,32 @@ The Cognivue monorepo consists of four core building blocks:
 
 ## Screenshots
 
-| View | Screenshot Path |
-| --- | --- |
-| Landing Page | docs/screenshots/landing-page.png |
-| Authentication | docs/screenshots/login-page.png / docs/screenshots/register-page.png |
-| Main Dashboard | docs/screenshots/dashboard-overview.png |
-| Live Vision Monitoring | docs/screenshots/live-monitoring.png |
-| AI Cognitive Insights | docs/screenshots/ai-insights-overview.png |
-| Historical Graph Analysis | docs/screenshots/ai-insights-graphs.png |
-| Coaching Recommendations | docs/screenshots/ai-insights-recommendations.png |
-| Historical Sessions List | docs/screenshots/session-history.png |
-| Toolbar Focus Extension | docs/screenshots/browser-extension.png |
-| Security & Privacy Control | docs/screenshots/settings-privacy.png |
+### Landing Page
+![Landing Page](docs/screenshots/landing-page.png)
+
+### Authentication
+![Login Page](docs/screenshots/login-page.png)
+![Register Page](docs/screenshots/register-page.png)
+
+### Main Dashboard
+![Dashboard Overview](docs/screenshots/dashboard-overview.png)
+
+### Live Vision Monitoring
+![Live Monitoring](docs/screenshots/live-monitoring.png)
+
+### AI Cognitive Insights
+![AI Insights Overview](docs/screenshots/ai-insights-overview.png)
+![AI Insights Graphs](docs/screenshots/ai-insights-graphs.png)
+![AI Recommendations](docs/screenshots/ai-insights-recommendations.png)
+
+### Historical Sessions
+![Session History](docs/screenshots/session-history.png)
+
+### Browser Extension
+![Browser Extension](docs/screenshots/browser-extension.png)
+
+### Security & Privacy
+![Settings Privacy](docs/screenshots/settings-privacy.png)
 
 ---
 
