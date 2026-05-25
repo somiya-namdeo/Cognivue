@@ -5,6 +5,8 @@
  * Strictly avoids page scraping, keystroke logging, screenshots, or camera streams.
  */
 
+const API_BASE_URL = "https://cognivue-rmlz.onrender.com";
+
 // Extensible Domain Categorization Function
 function categorizeDomain(urlStr) {
   if (!urlStr) {
@@ -59,10 +61,17 @@ let activeDomainStartTime = Date.now();
 let totalTimeByDomain = {};
 let unsyncedTimeSeconds = 0;
 
+// Cached tracking rules and user connection
+let user_id = "";
+let trackingEnabled = false; // Default to false for fresh install!
+let extension_connected = false;
+let active_session_id = "";
+
 function initializeState() {
   chrome.storage.local.get([
     "activeDomain", "activeTitle", "category", "focusMode", "tabSwitches", "syncStatus",
-    "activeDomainStartTime", "totalTimeByDomain", "unsyncedTimeSeconds"
+    "activeDomainStartTime", "totalTimeByDomain", "unsyncedTimeSeconds",
+    "user_id", "userId", "trackingEnabled", "extension_connected", "active_session_id"
   ], (result) => {
     activeDomain = result.activeDomain || "";
     activeTitle = result.activeTitle || "";
@@ -75,6 +84,17 @@ function initializeState() {
     activeDomainStartTime = result.activeDomainStartTime || Date.now();
     totalTimeByDomain = result.totalTimeByDomain || {};
     unsyncedTimeSeconds = result.unsyncedTimeSeconds || 0;
+    
+    // Cache connection and tracking state
+    user_id = result.user_id || result.userId || "";
+    trackingEnabled = result.trackingEnabled === true; // default to false
+    extension_connected = !!result.extension_connected;
+    active_session_id = result.active_session_id || "";
+
+    // Set default trackingEnabled if it wasn't in storage
+    if (result.trackingEnabled === undefined) {
+      chrome.storage.local.set({ trackingEnabled: false });
+    }
     
     // Attempt to recover active tab if it's missing (e.g. extension restart)
     if (!activeDomain) {
@@ -96,7 +116,58 @@ function saveState() {
   });
 }
 
+// Reactively keep memory variables in sync with chrome.storage.local
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === "local") {
+    if (changes.user_id) {
+      user_id = changes.user_id.newValue || "";
+    }
+    if (changes.userId) {
+      user_id = changes.userId.newValue || "";
+    }
+    if (changes.trackingEnabled) {
+      const newTracking = changes.trackingEnabled.newValue === true;
+      if (!newTracking) {
+        // Turning tracking OFF: accumulate any pending time before we stop tracking
+        accumulateTime();
+      }
+      trackingEnabled = newTracking;
+      if (newTracking) {
+        // Turning tracking ON: reset start time to now so we start fresh
+        activeDomainStartTime = Date.now();
+        saveState();
+      }
+    }
+    if (changes.extension_connected) {
+      const newConnected = !!changes.extension_connected.newValue;
+      if (!newConnected) {
+        accumulateTime();
+      }
+      extension_connected = newConnected;
+    }
+    if (changes.active_session_id) {
+      const newSession = changes.active_session_id.newValue || "";
+      if (!newSession) {
+        accumulateTime();
+      }
+      active_session_id = newSession;
+      if (newSession) {
+        activeDomainStartTime = Date.now();
+        saveState();
+      }
+    }
+  }
+});
+
 function accumulateTime() {
+  // 6. Background.js must check before every timer update: if (!user_id || !trackingEnabled) return;
+  // Plus we require extension to be connected and have an active session!
+  if (!user_id || !trackingEnabled || !extension_connected || !active_session_id) {
+    activeDomainStartTime = Date.now();
+    saveState();
+    return;
+  }
+
   const now = Date.now();
   const elapsedSeconds = Math.round((now - activeDomainStartTime) / 1000);
   
@@ -116,14 +187,16 @@ function handleTabTransition(url, title = "") {
   const info = categorizeDomain(url);
 
   if (newDomain !== activeDomain) {
-    console.log("Active tab changed to:", newDomain);
-    tabSwitches += 1;
+    // Only count tab switches when tracking is fully active
+    const canTrack = !!user_id && !!trackingEnabled && !!extension_connected && !!active_session_id;
+    if (canTrack) {
+      tabSwitches += 1;
+    }
     activeDomain = newDomain;
     activeTitle = title;
     category = info.category;
     focusMode = info.mode;
     activeDomainStartTime = Date.now();
-    console.log("Domain timer updated for:", activeDomain);
   } else if (title) {
     activeTitle = title;
   }
@@ -167,117 +240,109 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
 
 // Sync handler (5 seconds)
 function syncTelemetry() {
+  // 7. Before every sync: if (!user_id || !trackingEnabled) return;
+  // Refinement: syncTelemetry must require user_id && extension_connected && trackingEnabled && active_session_id
+  if (!user_id || !trackingEnabled || !extension_connected || !active_session_id) {
+    return;
+  }
+  
   accumulateTime(); // Ensure latest time is tracked
   
-  chrome.storage.local.get(["user_id", "userId", "active_session_id"], (result) => {
-    const userId = result.user_id || result.userId;
-    const sessionId = result.active_session_id || null;
-    
-    if (!userId) {
-      syncStatus = "Waiting for Account";
-      saveState();
-      return;
-    }
+  // Re-check conditions in case accumulateTime changed them
+  if (!user_id || !trackingEnabled || !extension_connected || !active_session_id) {
+    return;
+  }
 
-    if (unsyncedTimeSeconds === 0) {
+  if (unsyncedTimeSeconds === 0) {
+    syncStatus = "Synced";
+    saveState();
+    return;
+  }
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const title = tabs && tabs[0] ? tabs[0].title : "";
+
+    const payload = {
+      user_id: user_id,
+      session_id: active_session_id,
+      domain: activeDomain || "unknown",
+      title: title,
+      detected_mode: focusMode,
+      activity_category: category,
+      time_spent: unsyncedTimeSeconds,
+      tab_switches: tabSwitches,
+      timestamp: new Date().toISOString()
+    };
+
+    fetch(`${API_BASE_URL}/extension/activity`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+    .then(async (response) => {
+      if (!response.ok) throw new Error("HTTP error " + response.status);
+      unsyncedTimeSeconds = 0;
       syncStatus = "Synced";
       saveState();
-      return;
-    }
-
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const title = tabs && tabs[0] ? tabs[0].title : "";
-
-      const payload = {
-        user_id: userId,
-        session_id: sessionId,
-        domain: activeDomain || "unknown",
-        title: title,
-        detected_mode: focusMode,
-        activity_category: category,
-        time_spent: unsyncedTimeSeconds,
-        tab_switches: tabSwitches,
-        timestamp: new Date().toISOString()
-      };
-
-      fetch("http://127.0.0.1:8000/extension/activity", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("HTTP error " + response.status);
-        
-        console.log("Activity sync result: Success", unsyncedTimeSeconds, "seconds synced.");
-        unsyncedTimeSeconds = 0;
-        syncStatus = "Synced";
-        saveState();
-      })
-      .catch((err) => {
-        console.error("Cognivue Telemetry sync failed (backend offline):", err);
-        syncStatus = "Cloud sync paused";
-        saveState();
-      });
+    })
+    .catch((err) => {
+      console.error("Cognivue Telemetry sync failed (backend offline):", err);
+      syncStatus = "Cloud sync paused";
+      saveState();
     });
   });
 }
 
 // Active session & metrics polling (5 seconds)
 function pollActiveSession() {
-  chrome.storage.local.get(["user_id", "userId", "active_session_id"], (result) => {
-    const userId = result.user_id || result.userId;
-    if (!userId) return;
+  if (!user_id) return;
 
-    // 1. Poll for active session
-    fetch(`http://127.0.0.1:8000/sessions/active/${userId}`)
-      .then(res => {
-        if (!res.ok) throw new Error("No active session");
-        return res.json();
-      })
-      .then(session => {
-        console.log("Active session response:", session);
-        const sessionId = session?.id || session?.session_id || session?.active_session_id;
-        if (sessionId) {
-          chrome.storage.local.set({ active_session_id: sessionId });
-          return sessionId;
-        }
-        throw new Error("No valid session ID in response");
-      })
-      .then(sessionId => {
-        // 2. Fetch metrics
-        fetch(`http://127.0.0.1:8000/metrics/latest/${sessionId}`)
-          .then(res => {
-            if (!res.ok) {
-              if (res.status === 404) {
-                return fetch(`http://127.0.0.1:8000/metrics/session/${sessionId}`)
-                  .then(fbRes => {
-                    if (!fbRes.ok) throw new Error("Fallback failed");
-                    return fbRes.json();
-                  })
-                  .then(arr => {
-                    if (Array.isArray(arr) && arr.length > 0) return arr[arr.length - 1];
-                    throw new Error("No metrics in fallback");
-                  });
-              }
-              throw new Error("Metrics not available");
+  // 1. Poll for active session
+  fetch(`${API_BASE_URL}/sessions/active/${user_id}`)
+    .then(res => {
+      if (!res.ok) throw new Error("No active session");
+      return res.json();
+    })
+    .then(session => {
+      const sessionId = session?.id || session?.session_id || session?.active_session_id;
+      if (sessionId) {
+        chrome.storage.local.set({ active_session_id: sessionId });
+        return sessionId;
+      }
+      throw new Error("No valid session ID in response");
+    })
+    .then(sessionId => {
+      // 2. Fetch metrics
+      fetch(`${API_BASE_URL}/metrics/latest/${sessionId}`)
+        .then(res => {
+          if (!res.ok) {
+            if (res.status === 404) {
+              return fetch(`${API_BASE_URL}/metrics/session/${sessionId}`)
+                .then(fbRes => {
+                  if (!fbRes.ok) throw new Error("Fallback failed");
+                  return fbRes.json();
+                })
+                .then(arr => {
+                  if (Array.isArray(arr) && arr.length > 0) return arr[arr.length - 1];
+                  throw new Error("No metrics in fallback");
+                });
             }
-            return res.json();
-          })
-          .then(metric => {
-            console.log("Metrics response:", metric);
-            if (metric) {
-              chrome.storage.local.set({ latestMetrics: metric });
-            }
-          })
-          .catch(err => {
-            console.warn("Could not fetch metrics:", err);
-            // Don't clear latestMetrics aggressively, just log
-          });
-      })
-      .catch(err => {
-        chrome.storage.local.remove(["active_session_id", "latestMetrics"]);
-      });
-  });
+            throw new Error("Metrics not available");
+          }
+          return res.json();
+        })
+        .then(metric => {
+          if (metric) {
+            chrome.storage.local.set({ latestMetrics: metric });
+          }
+        })
+        .catch(() => {
+          // metrics unavailable, retain last known values
+        });
+    })
+    .catch(err => {
+      chrome.storage.local.remove(["active_session_id", "latestMetrics"]);
+    });
 }
 
 // Alarms setup
@@ -299,6 +364,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     unsyncedTimeSeconds = 0;
     tabSwitches = 0;
     activeDomainStartTime = Date.now();
+    activeDomain = "";
+    activeTitle = "";
+    category = "General Browsing";
+    focusMode = "General";
     saveState();
     chrome.storage.local.remove(["latestMetrics", "active_session_id"], () => {
       sendResponse({ status: "cleared" });
@@ -308,3 +377,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 initializeState();
+

@@ -102,6 +102,17 @@ body {
   animation: pulse-glow 2s infinite ease-in-out;
 }
 
+.pulse-amber {
+  background-color: var(--amber-accent);
+  box-shadow: 0 0 8px var(--amber-accent);
+  animation: pulse-glow-amber 2s infinite ease-in-out;
+}
+
+.status-dot-inactive {
+  background-color: var(--text-subtle);
+  box-shadow: none;
+}
+
 .status-text {
   font-size: 10px;
   font-weight: 700;
@@ -163,6 +174,12 @@ body {
   color: var(--red-accent);
   box-shadow: 0 4px 15px rgba(248, 113, 113, 0.1);
   animation: shake 0.5s ease-in-out;
+}
+
+.bg-gradient-paused {
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.08) 0%, rgba(100, 116, 139, 0.08) 100%);
+  border-color: rgba(148, 163, 184, 0.2);
+  color: var(--text-muted);
 }
 
 /* 4. Main Panel Glass Cards */
@@ -456,3 +473,59 @@ body {
   20%, 60% { transform: translateX(-4px); }
   40%, 80% { transform: translateX(4px); }
 }
+
+@keyframes pulse-glow-amber {
+  0%, 100% {
+    opacity: 0.9;
+    box-shadow: 0 0 6px var(--amber-accent);
+  }
+  50% {
+    opacity: 0.4;
+    box-shadow: 0 0 2px var(--amber-accent);
+  }
+}
+
+/* Premium Button System */
+.hud-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ccc;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 9.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hud-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: var(--text-white);
+}
+
+.hud-btn-cyan {
+  background: rgba(34, 211, 238, 0.1);
+  border-color: rgba(34, 211, 238, 0.3);
+  color: var(--cyan-accent);
+}
+
+.hud-btn-cyan:hover {
+  background: rgba(34, 211, 238, 0.2);
+  border-color: rgba(34, 211, 238, 0.5);
+  color: #fff;
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.25);
+}
+
+.hud-btn-danger {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+.hud-btn-danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fca5a5;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
+}
+

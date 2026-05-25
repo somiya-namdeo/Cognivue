@@ -79,6 +79,8 @@ const modeConfigurations = {
   }
 };
 
+let isChangingAccount = false;
+
 // Main function to read state from chrome.storage.local and update the HUD
 function updatePopupHUD() {
   chrome.storage.local.get([
@@ -90,10 +92,20 @@ function updatePopupHUD() {
     "syncStatus",
     "user_id",
     "userId",
+    "trackingEnabled",
+    "extension_connected",
     "totalTimeByDomain",
     "activeDomainStartTime",
     "latestMetrics"
   ], (result) => {
+    const userId = result.user_id || result.userId;
+    const trackingEnabled = result.trackingEnabled === true; // default to false
+    const extensionConnected = !!result.extension_connected;
+    const activeSessionId = result.active_session_id;
+
+    const isConnected = !!userId && extensionConnected;
+    const hasActiveSession = !!activeSessionId;
+    const canTrack = isConnected && trackingEnabled && hasActiveSession;
     
     // 1. Resolve active domain display
     const domainEl = document.getElementById("active-domain");
@@ -115,7 +127,7 @@ function updatePopupHUD() {
       modeEl.textContent = resolvedMode;
     }
 
-    // 4. Resolve and format time spent (Dynamic Calculation)
+    // 4. Resolve and format time spent (Dynamic Calculation gated by tracking state)
     const timeEl = document.getElementById("time-spent");
     if (timeEl) {
       const activeDomain = result.activeDomain || "";
@@ -129,7 +141,8 @@ function updatePopupHUD() {
       }
 
       const storedTotal = totalTimeByDomain[activeDomain] || 0;
-      const liveElapsed = (activeDomain && activeDomain !== "newtab" && activeDomainStartTime)
+      // Live elapsed seconds are ONLY counted when tracking is fully active
+      const liveElapsed = (canTrack && activeDomain && activeDomain !== "newtab" && activeDomainStartTime)
         ? Math.floor((Date.now() - activeDomainStartTime) / 1000)
         : 0;
       
@@ -150,35 +163,64 @@ function updatePopupHUD() {
       switchesEl.textContent = result.tabSwitches || 0;
     }
 
-    // 6. Update dynamic banner styling & header copy
+    // 6. Update dynamic banner styling & header copy (Strictly matching connection & tracking states)
     const bannerEl = document.getElementById("dynamic-mode-banner");
     const bannerTextEl = document.getElementById("dynamic-mode-text");
     const statusDotEl = document.getElementById("hud-status-dot");
     const statusTextEl = document.getElementById("hud-status-text");
 
-    const config = modeConfigurations[resolvedMode] || modeConfigurations.General;
-
-    if (bannerEl && bannerTextEl) {
-      bannerTextEl.textContent = config.bannerText;
-      
-      // Reset all styling classes and apply correct gradient theme
-      bannerEl.className = "mode-banner";
-      bannerEl.classList.add(config.bannerClass);
+    if (bannerEl && bannerTextEl && statusDotEl && statusTextEl) {
+      if (!isConnected) {
+        // State 1: Local only / Not connected
+        statusTextEl.textContent = "NOT CONNECTED";
+        statusTextEl.style.color = "var(--text-subtle)";
+        
+        statusDotEl.className = "status-dot status-dot-inactive";
+        statusDotEl.style.backgroundColor = "var(--text-subtle)";
+        statusDotEl.style.boxShadow = "none";
+        
+        bannerTextEl.textContent = "Connect account to start tracking";
+        bannerEl.className = "mode-banner bg-gradient-paused";
+      } else if (!trackingEnabled) {
+        // State 2: Connected + Paused
+        statusTextEl.textContent = "PAUSED";
+        statusTextEl.style.color = "var(--amber-accent)";
+        
+        statusDotEl.className = "status-dot pulse-amber";
+        statusDotEl.style.backgroundColor = "var(--amber-accent)";
+        statusDotEl.style.boxShadow = "0 0 8px var(--amber-accent)";
+        
+        bannerTextEl.textContent = "Tracking Paused";
+        bannerEl.className = "mode-banner bg-gradient-paused";
+      } else if (!hasActiveSession) {
+        // State 3: Connected + Tracking active but no active session exists
+        statusTextEl.textContent = "WAITING";
+        statusTextEl.style.color = "var(--amber-accent)";
+        
+        statusDotEl.className = "status-dot pulse-amber";
+        statusDotEl.style.backgroundColor = "var(--amber-accent)";
+        statusDotEl.style.boxShadow = "0 0 8px var(--amber-accent)";
+        
+        bannerTextEl.textContent = "Waiting for active Cognivue session";
+        bannerEl.className = "mode-banner bg-gradient-paused";
+      } else {
+        // State 4: Connected + Tracking active + Session exists
+        const config = modeConfigurations[resolvedMode] || modeConfigurations.General;
+        
+        statusTextEl.textContent = config.statusText;
+        statusTextEl.style.color = config.statusTextColor;
+        
+        statusDotEl.className = "status-dot " + config.statusDotClass;
+        statusDotEl.style.backgroundColor = config.statusDotBg;
+        statusDotEl.style.boxShadow = `0 0 8px ${config.statusDotBg}`;
+        
+        bannerTextEl.textContent = config.bannerText;
+        bannerEl.className = "mode-banner " + config.bannerClass;
+      }
     }
 
-    if (statusDotEl && statusTextEl) {
-      statusTextEl.textContent = config.statusText;
-      statusTextEl.style.color = config.statusTextColor;
-      
-      // Update glow class
-      statusDotEl.className = "status-dot";
-      statusDotEl.classList.add(config.statusDotClass);
-      statusDotEl.style.backgroundColor = config.statusDotBg;
-      statusDotEl.style.boxShadow = `0 0 8px ${config.statusDotBg}`;
-    }
-    // 8. Update cloud synchronization card and display "Connect later" helper if no user_id exists
+    // 7. Update Cloud Sync Details
     const syncStatus = result.syncStatus || "Local only";
-    const userId = result.user_id || result.userId;
     
     const syncIcon = document.getElementById("sync-icon");
     const syncMsg = document.getElementById("sync-status-msg");
@@ -187,33 +229,87 @@ function updatePopupHUD() {
     const linkedUserId = document.getElementById("linked-user-id");
 
     const connectFlowContainer = document.getElementById("connect-flow-container");
+    const cancelConnectBtn = document.getElementById("cancel-connect-btn");
+    const toggleTrackingBtn = document.getElementById("toggle-tracking-btn");
+
+    if (toggleTrackingBtn) {
+      if (trackingEnabled) {
+        toggleTrackingBtn.textContent = "Pause";
+        toggleTrackingBtn.className = "hud-btn";
+      } else {
+        toggleTrackingBtn.textContent = "Resume";
+        toggleTrackingBtn.className = "hud-btn hud-btn-cyan";
+      }
+    }
+
+    // Handle Connection Flow Views & Changing Account Forms
+    const connectFlowTitle = document.getElementById("connect-flow-title");
+    if (connectFlowTitle) {
+      if (isChangingAccount) {
+        connectFlowTitle.textContent = "Paste new Cognivue connection key";
+      } else {
+        connectFlowTitle.textContent = "DEMO CONNECTION KEY";
+      }
+    }
+
+    if (!isConnected) {
+      isChangingAccount = false;
+      if (connectFlowContainer) connectFlowContainer.style.display = "block";
+      if (linkedUserContainer) linkedUserContainer.style.display = "none";
+      if (cancelConnectBtn) cancelConnectBtn.style.display = "none";
+    } else {
+      if (isChangingAccount) {
+        if (connectFlowContainer) connectFlowContainer.style.display = "block";
+        if (linkedUserContainer) linkedUserContainer.style.display = "none";
+        if (cancelConnectBtn) cancelConnectBtn.style.display = "inline-block";
+      } else {
+        if (connectFlowContainer) connectFlowContainer.style.display = "none";
+        if (linkedUserContainer) linkedUserContainer.style.display = "block";
+        if (cancelConnectBtn) cancelConnectBtn.style.display = "none";
+      }
+    }
+
+    // Proactively hide validation errors if connection container is closed
+    const connectErrorMsg = document.getElementById("connect-error-msg");
+    if (connectErrorMsg && connectFlowContainer && connectFlowContainer.style.display === "none") {
+      connectErrorMsg.style.display = "none";
+      connectErrorMsg.textContent = "";
+    }
 
     if (syncMsg) {
-      if (!userId) {
-        // "Connect later" helper state
-        syncMsg.textContent = "Demo tracking active locally.";
-        if (syncIcon) syncIcon.textContent = "👤";
+      if (!isConnected) {
+        syncMsg.textContent = "Not connected to Cognivue.";
+        if (syncIcon) syncIcon.textContent = "🔌";
         if (connectLaterBadge) {
           connectLaterBadge.style.display = "block";
           connectLaterBadge.textContent = "Local Only";
           connectLaterBadge.style.borderColor = "var(--border-white)";
-          connectLaterBadge.style.color = "var(--text-muted)";
-        }
-        if (connectFlowContainer) {
-          connectFlowContainer.style.display = "block";
-        }
-        if (linkedUserContainer) {
-          linkedUserContainer.style.display = "none";
+          connectLaterBadge.style.color = "var(--text-subtle)";
         }
       } else {
-        if (connectFlowContainer) {
-          connectFlowContainer.style.display = "none";
-        }
-        if (linkedUserContainer && linkedUserId) {
-          linkedUserContainer.style.display = "block";
+        if (linkedUserId) {
           linkedUserId.textContent = userId.substring(0, 8) + "...";
         }
-        if (syncStatus === "Synced") {
+        
+        if (!trackingEnabled) {
+          syncMsg.textContent = "Tracking is paused.";
+          if (syncIcon) syncIcon.textContent = "⏸️";
+          if (connectLaterBadge) {
+            connectLaterBadge.style.display = "block";
+            connectLaterBadge.textContent = "Paused";
+            connectLaterBadge.style.borderColor = "rgba(251, 191, 36, 0.3)";
+            connectLaterBadge.style.color = "var(--amber-accent)";
+          }
+        } else if (!hasActiveSession) {
+          syncMsg.textContent = "Waiting for session telemetry...";
+          if (syncIcon) syncIcon.textContent = "⏳";
+          if (connectLaterBadge) {
+            connectLaterBadge.style.display = "block";
+            connectLaterBadge.textContent = "Waiting";
+            connectLaterBadge.style.borderColor = "rgba(251, 191, 36, 0.3)";
+            connectLaterBadge.style.color = "var(--amber-accent)";
+          }
+        } else if (syncStatus === "Synced") {
           syncMsg.textContent = "Telemetry synced with Cloud.";
           if (syncIcon) syncIcon.textContent = "☁️";
           if (connectLaterBadge) {
@@ -223,7 +319,7 @@ function updatePopupHUD() {
             connectLaterBadge.style.color = "var(--emerald-accent)";
           }
         } else if (syncStatus === "Cloud sync paused") {
-          syncMsg.textContent = "Cloud sync paused. Tracking locally...";
+          syncMsg.textContent = "Sync offline. Telemetry cached.";
           if (syncIcon) syncIcon.textContent = "🔌";
           if (connectLaterBadge) {
             connectLaterBadge.style.display = "block";
@@ -246,7 +342,6 @@ function updatePopupHUD() {
   });
 }
 
-
 // Run immediately on page load
 document.addEventListener("DOMContentLoaded", () => {
   updatePopupHUD();
@@ -259,51 +354,112 @@ document.addEventListener("DOMContentLoaded", () => {
   if (connectBtn) {
     connectBtn.addEventListener("click", () => {
       const input = document.getElementById("connect-key-input");
+      const errorMsg = document.getElementById("connect-error-msg");
+      
+      if (errorMsg) {
+        errorMsg.style.display = "none";
+        errorMsg.textContent = "";
+      }
+
       if (input && input.value) {
         try {
-          const decoded = atob(input.value); // Base64 decode demo key
+          const decoded = atob(input.value.trim()); // Base64 decode demo key
           
           if (!decoded || decoded.length < 5 || decoded === "undefined") {
             throw new Error("Invalid demo key");
           }
 
-          chrome.storage.local.set({ 
-            user_id: decoded, 
-            cognivue_user_id: decoded, 
-            extension_connected: true, 
-            syncStatus: "Synced" 
-          }, () => {
-            updatePopupHUD();
+          // Fresh link or switching accounts: reset timers and tab counts first (Requirement 4)
+          chrome.runtime.sendMessage({ action: "reset_extension_data" }, (response) => {
+            chrome.storage.local.set({ 
+              user_id: decoded, 
+              cognivue_user_id: decoded, 
+              extension_connected: true, 
+              trackingEnabled: true,
+              syncStatus: "Synced" 
+            }, () => {
+              isChangingAccount = false;
+              input.value = "";
+              if (errorMsg) {
+                errorMsg.style.display = "none";
+              }
+              updatePopupHUD();
+            });
           });
         } catch (e) {
-          alert("Invalid base64 demo key.");
+          // Invalid key: show inline error message, do not close form, do not disconnect old account (Requirement 5)
+          if (errorMsg) {
+            errorMsg.textContent = "Invalid base64 connection key.";
+            errorMsg.style.display = "block";
+          }
         }
       }
+    });
+  }
+
+  // Cancel Connect button logic (restore old account)
+  const cancelConnectBtn = document.getElementById("cancel-connect-btn");
+  if (cancelConnectBtn) {
+    cancelConnectBtn.addEventListener("click", () => {
+      isChangingAccount = false;
+      const input = document.getElementById("connect-key-input");
+      if (input) {
+        input.value = "";
+      }
+      const errorMsg = document.getElementById("connect-error-msg");
+      if (errorMsg) {
+        errorMsg.style.display = "none";
+        errorMsg.textContent = "";
+      }
+      updatePopupHUD();
+    });
+  }
+
+  // Toggle Tracking Pause/Resume logic
+  const toggleTrackingBtn = document.getElementById("toggle-tracking-btn");
+  if (toggleTrackingBtn) {
+    toggleTrackingBtn.addEventListener("click", () => {
+      chrome.storage.local.get(["trackingEnabled"], (res) => {
+        const current = res.trackingEnabled === true;
+        chrome.storage.local.set({ trackingEnabled: !current }, () => {
+          updatePopupHUD();
+        });
+      });
     });
   }
 
   const changeAccountBtn = document.getElementById("change-account-btn");
   if (changeAccountBtn) {
     changeAccountBtn.addEventListener("click", () => {
-      const connectFlowContainer = document.getElementById("connect-flow-container");
-      if (connectFlowContainer) {
-        connectFlowContainer.style.display = "block";
+      isChangingAccount = true;
+      const errorMsg = document.getElementById("connect-error-msg");
+      if (errorMsg) {
+        errorMsg.style.display = "none";
+        errorMsg.textContent = "";
       }
+      updatePopupHUD();
     });
   }
 
   const disconnectBtn = document.getElementById("disconnect-btn");
   if (disconnectBtn) {
     disconnectBtn.addEventListener("click", () => {
-      chrome.storage.local.remove([
-        "user_id", 
-        "cognivue_user_id", 
-        "extension_connected", 
-        "active_session_id", 
-        "syncStatus",
-        "latestMetrics"
-      ], () => {
-        updatePopupHUD();
+      // Disconnect: send clear message to background to reset timer totals, tab switches, and categories
+      chrome.runtime.sendMessage({ action: "reset_extension_data" }, (response) => {
+        // Clear all connection state and set trackingEnabled back to false (Requirement 5)
+        chrome.storage.local.set({ trackingEnabled: false }, () => {
+          chrome.storage.local.remove([
+            "user_id", 
+            "cognivue_user_id", 
+            "extension_connected", 
+            "active_session_id", 
+            "syncStatus",
+            "latestMetrics"
+          ], () => {
+            isChangingAccount = false;
+            updatePopupHUD();
+          });
+        });
       });
     });
   }
@@ -324,3 +480,4 @@ document.addEventListener("DOMContentLoaded", () => {
     clearInterval(liveInterval);
   });
 });
+

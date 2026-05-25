@@ -91,23 +91,28 @@
               <span id="linked-user-id" style="font-size: 10px; color: var(--cyan-accent); font-family: monospace;"></span>
             </div>
             <div style="display: flex; gap: 6px;">
-              <button id="change-account-btn" style="background: none; border: 1px solid rgba(255,255,255,0.2); color: #ccc; border-radius: 4px; padding: 2px 6px; font-size: 9px; cursor: pointer;">Change</button>
-              <button id="disconnect-btn" style="background: none; border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; border-radius: 4px; padding: 2px 6px; font-size: 9px; cursor: pointer;">Disconnect</button>
+              <button id="toggle-tracking-btn" class="hud-btn hud-btn-cyan">Pause</button>
+              <button id="change-account-btn" class="hud-btn">Change</button>
+              <button id="disconnect-btn" class="hud-btn hud-btn-danger">Disconnect</button>
             </div>
           </div>
         </div>
         
         <!-- Connection Flow UI -->
         <div id="connect-flow-container" class="connect-flow-ui" style="display: none; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
-          <span class="telemetry-label" style="display: block; margin-bottom: 6px;">DEMO CONNECTION KEY</span>
-          <div style="display: flex; gap: 8px;">
-            <input type="text" id="connect-key-input" placeholder="Paste base64 key..." style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; padding: 6px; font-size: 11px;">
-            <button id="connect-btn" style="background: rgba(34, 211, 238, 0.2); color: #22d3ee; border: 1px solid rgba(34, 211, 238, 0.4); border-radius: 6px; padding: 6px 10px; font-size: 11px; cursor: pointer; font-weight: bold;">Connect</button>
+          <span id="connect-flow-title" class="telemetry-label" style="display: block; margin-bottom: 6px;">DEMO CONNECTION KEY</span>
+          <div style="display: flex; gap: 6px; flex-direction: column;">
+            <input type="text" id="connect-key-input" placeholder="Paste base64 key..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; padding: 6px; font-size: 11px;">
+            <span id="connect-error-msg" style="display: none; font-size: 10px; color: var(--red-accent); margin-top: 4px; font-weight: 500; text-align: left;"></span>
+            <div style="display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px;">
+              <button id="cancel-connect-btn" class="hud-btn" style="display: none;">Cancel</button>
+              <button id="connect-btn" class="hud-btn hud-btn-cyan">Connect</button>
+            </div>
           </div>
         </div>
 
         <div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; text-align: center;">
-          <button id="reset-data-btn" style="background: none; border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-muted); border-radius: 6px; padding: 6px 12px; font-size: 10px; cursor: pointer; transition: all 0.2s;">Reset Extension Data</button>
+          <button id="reset-data-btn" class="hud-btn" style="width: 100%; padding: 6px 12px;">Reset Extension Data</button>
         </div>
       </div>
       
