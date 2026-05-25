@@ -17,6 +17,7 @@ import { getExtensionActivity, clearActiveSession, deleteUserAccount } from '../
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '../hooks/useProfile';
 import { pushNotification } from '../services/notifications';
+import { determineExtensionStatus } from '../utils/extensionStatus';
 
 export const SettingsPage: React.FC = () => {
   const profile = useProfile();
@@ -60,27 +61,14 @@ export const SettingsPage: React.FC = () => {
       }).catch(() => setWebcamPermStatus('Unsupported'));
     }
 
-    // Check Extension Sync
     const checkExt = async () => {
       try {
         const userId = localStorage.getItem('user_id');
         if (!userId) return setExtensionStatus({ state: 'Not connected', detail: 'No user ID' });
         
         const data = await getExtensionActivity(userId);
-        if (data && data.length > 0) {
-          const latest = data[0];
-          const lastSync = new Date(latest.recorded_at).getTime();
-          const now = Date.now();
-          const diffMins = (now - lastSync) / 60000;
-          
-          if (diffMins < 2) {
-            setExtensionStatus({ state: 'Connected', detail: `Active on ${latest.domain}` });
-          } else {
-            setExtensionStatus({ state: 'Paused', detail: `Last sync ${Math.round(diffMins)}m ago` });
-          }
-        } else {
-          setExtensionStatus({ state: 'Not connected', detail: 'No recent telemetry found.' });
-        }
+        const resolved = determineExtensionStatus(data || []);
+        setExtensionStatus(resolved);
       } catch {
         setExtensionStatus({ state: 'Not connected', detail: 'Could not fetch extension data.' });
       }
@@ -309,13 +297,13 @@ export const SettingsPage: React.FC = () => {
                   </div>
 
                   <span className={`px-2.5 py-1 rounded-md border text-[10px] font-bold uppercase tracking-wide shrink-0 ${
-                    extensionStatus.state === 'Connected' 
+                    extensionStatus.state === 'connected' 
                     ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' 
-                    : extensionStatus.state === 'Paused' 
+                    : extensionStatus.state === 'paused' 
                     ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
                     : 'bg-rose-500/10 border-rose-500/20 text-rose-500'
                   }`}>
-                    {extensionStatus.state}
+                    {extensionStatus.state === 'connected' ? 'Connected' : extensionStatus.state === 'paused' ? 'Paused' : 'Not Connected'}
                   </span>
                 </div>
 

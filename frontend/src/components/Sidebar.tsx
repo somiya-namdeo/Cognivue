@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { clearActiveSession, getLocalSession, getActiveSession, getSessionMetrics, getExtensionActivity } from '../services/api';
 import { pushNotification } from '../services/notifications';
+import { determineExtensionStatus } from '../utils/extensionStatus';
 
 interface SidebarProps {
   activeItem: string;
@@ -39,48 +40,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }
 
       try {
-        const activeSess = await getActiveSession(session.userId).catch(() => null);
-        if (!activeSess || !activeSess.id || activeSess.end_time) {
-           const extData = await getExtensionActivity(session.userId).catch(() => null);
-           const hasExtension = extData && extData.length > 0;
-           if (isMounted) {
-             setSysState(hasExtension ? 'idle' : 'disconnected');
-             if (!hasExtension) {
-               pushNotification('Extension Disconnected', 'Cannot detect the browser extension.', 'error', '/extension');
-             }
-           }
-           return;
-        }
+        // 1. Fetch extension activity to determine extension connection
+        const extData = await getExtensionActivity(session.userId).catch(() => null);
+        
+        // Determine extension connection using shared status helper!
+        const extStatus = determineExtensionStatus(extData || []);
 
-        const metrics = await getSessionMetrics(activeSess.id).catch(() => null);
-        if (!metrics || metrics.length === 0) {
-           if (isMounted) setSysState('initializing');
-           return;
-        }
-
-        const latestMetric = metrics[metrics.length - 1];
-        const lastTime = new Date(latestMetric.recorded_at).getTime();
-        const now = Date.now();
-        const diffSeconds = (now - lastTime) / 1000;
-
-        if (diffSeconds > 15) {
-           if (isMounted) {
-             setSysState('paused');
-             pushNotification('Telemetry Paused', 'No metrics received for over 15 seconds.', 'warning', '/live-monitoring');
-           }
+        if (extStatus.state === 'Connected') {
+          // Extension is connected and actively sending telemetry (within 2 minutes)
+          if (isMounted) setSysState('live'); // Shows "Browser CV Active"
+        } else if (extStatus.state === 'Paused') {
+          // Extension is paused (within 10 minutes)
+          if (isMounted) setSysState('paused'); // Shows "Stream Stalled"
         } else {
-           if (isMounted) setSysState('live');
+          // Extension is not connected (older than 10 minutes or no sync data)
+          const activeSess = await getActiveSession(session.userId).catch(() => null);
+          if (activeSess && activeSess.id && !activeSess.end_time) {
+            // Focus session is active on the backend, but extension has no recent telemetry
+            const metrics = await getSessionMetrics(activeSess.id).catch(() => null);
+            if (!metrics || metrics.length === 0) {
+              if (isMounted) setSysState('initializing'); // Shows "Connecting Stream..."
+            } else {
+              if (isMounted) setSysState('paused'); // Shows "Stream Stalled"
+            }
+          } else {
+            // No active session and extension is offline/idle
+            if (isMounted) {
+              const hasAnyTelemetry = extData && extData.length > 0;
+              setSysState(hasAnyTelemetry ? 'idle' : 'disconnected');
+            }
+          }
         }
       } catch (err) {
         if (isMounted) {
           setSysState('disconnected');
-          pushNotification('Extension Disconnected', 'Cannot reach local background script.', 'error', '/extension');
         }
       }
     };
 
     checkStatus();
-    const interval = setInterval(checkStatus, 3000);
+    const interval = setInterval(checkStatus, 15000);
     return () => {
       isMounted = false;
       clearInterval(interval);

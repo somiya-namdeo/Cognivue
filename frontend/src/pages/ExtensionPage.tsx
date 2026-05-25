@@ -19,6 +19,7 @@ import { getLocalSession, getExtensionActivity } from '../services/api';
 import type { ExtensionActivityResponse } from '../services/api';
 import { PrivacyManifestoModal } from '../components/PrivacyManifestoModal';
 import { pushNotification } from '../services/notifications';
+import { determineExtensionStatus } from '../utils/extensionStatus';
 
 export const ExtensionPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState('Extension');
@@ -30,6 +31,7 @@ export const ExtensionPage: React.FC = () => {
   const userId = session.userId;
   
   const [latestActivity, setLatestActivity] = React.useState<ExtensionActivityResponse | null>(null);
+  const [extStatus, setExtStatus] = useState<string>('waiting');
   const [mismatchWarning, setMismatchWarning] = useState(false);
 
   React.useEffect(() => {
@@ -53,10 +55,13 @@ export const ExtensionPage: React.FC = () => {
         .then(data => {
           if (data && data.length > 0) {
             setLatestActivity(data[0]);
-            // Check if last sync is stale (>5 min)
-            const lastSync = new Date(data[0].recorded_at).getTime();
-            const diffMins = (Date.now() - lastSync) / 60000;
-            if (diffMins > 5) {
+            const resolved = determineExtensionStatus(data);
+            setExtStatus(resolved.state);
+            
+            // Check if last sync is stale (>10 min)
+            if (resolved.state === 'disconnected') {
+              const lastSync = new Date(data[0].recorded_at || data[0].created_at || data[0].timestamp).getTime();
+              const diffMins = (Date.now() - lastSync) / 60000;
               pushNotification(
                 'Extension Offline',
                 `No telemetry received for ${Math.round(diffMins)} minutes. Ensure the browser extension is active.`,
@@ -64,6 +69,8 @@ export const ExtensionPage: React.FC = () => {
                 '/extension'
               );
             }
+          } else {
+            setExtStatus('waiting');
           }
         })
         .catch(() => {
@@ -334,8 +341,12 @@ export const ExtensionPage: React.FC = () => {
           <div className="rounded-2xl border border-white/10 bg-slate-950/20 p-6 backdrop-blur-md flex flex-col gap-4 text-left">
             <h4 className="text-lg font-bold text-white mb-2 flex items-center justify-between">
               <span>Extension Connection</span>
-              {latestActivity ? (
+              {extStatus === 'connected' ? (
                 <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-md">Connected</span>
+              ) : extStatus === 'paused' ? (
+                <span className="text-[10px] uppercase font-bold tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-md">Paused</span>
+              ) : extStatus === 'disconnected' ? (
+                <span className="text-[10px] uppercase font-bold tracking-widest text-rose-500 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-md">Disconnected</span>
               ) : (
                 <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 bg-white/5 border border-white/10 px-2 py-1 rounded-md">Waiting for connection</span>
               )}
