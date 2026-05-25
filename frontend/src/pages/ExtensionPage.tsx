@@ -60,7 +60,8 @@ export const ExtensionPage: React.FC = () => {
             
             // Check if last sync is stale (>10 min)
             if (resolved.state === 'disconnected') {
-              const lastSync = new Date(data[0].recorded_at || data[0].created_at || data[0].timestamp).getTime();
+              const rawTime = data[0].recorded_at || data[0].created_at || data[0].timestamp || "";
+              const lastSync = new Date(rawTime).getTime();
               const diffMins = (Date.now() - lastSync) / 60000;
               pushNotification(
                 'Extension Offline',

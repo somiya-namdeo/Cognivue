@@ -10,7 +10,6 @@ import {
   LogOut 
 } from 'lucide-react';
 import { clearActiveSession, getLocalSession, getActiveSession, getSessionMetrics, getExtensionActivity } from '../services/api';
-import { pushNotification } from '../services/notifications';
 import { determineExtensionStatus } from '../utils/extensionStatus';
 
 interface SidebarProps {
@@ -46,10 +45,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         // Determine extension connection using shared status helper!
         const extStatus = determineExtensionStatus(extData || []);
 
-        if (extStatus.state === 'Connected') {
+        if (extStatus.state === 'connected') {
           // Extension is connected and actively sending telemetry (within 2 minutes)
           if (isMounted) setSysState('live'); // Shows "Browser CV Active"
-        } else if (extStatus.state === 'Paused') {
+        } else if (extStatus.state === 'paused') {
           // Extension is paused (within 10 minutes)
           if (isMounted) setSysState('paused'); // Shows "Stream Stalled"
         } else {

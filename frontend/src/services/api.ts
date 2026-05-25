@@ -315,6 +315,8 @@ export interface ExtensionActivityResponse {
   active_duration_seconds: number;
   tab_switches: number;
   recorded_at: string;
+  created_at?: string;
+  timestamp?: string;
 }
 
 export async function getExtensionActivity(userId: string): Promise<ExtensionActivityResponse[]> {
