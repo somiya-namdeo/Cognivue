@@ -57,6 +57,13 @@ Cognivue processes raw biometric telemetry entirely inside the browser's local s
 * Hosting: Vercel (Frontend), Render (Backend)
 
 ---
+## Module Documentation
+
+- Frontend Dashboard Docs → [frontend/README.md](./frontend/README.md)
+- Backend API Docs → [backend/README.md](./backend/README.md)
+- Chrome Extension Docs → [extension/README.md](./extension/README.md)
+
+---
 
 ## Architecture Overview
 
