@@ -5,7 +5,7 @@ from uuid import UUID
 
 class ActivitySyncRequest(BaseModel):
     user_id: UUID = Field(..., description="UUID of the user profile")
-    session_id: Optional[UUID] = Field(None, description="UUID of the active tracking session")
+    session_id: Optional[str] = Field(None, description="UUID of the active tracking session")
     domain: str = Field(..., description="Active tab domain name")
     title: Optional[str] = Field(None, description="Active tab title")
     detected_mode: str = Field(..., description="Active contextual focus mode")

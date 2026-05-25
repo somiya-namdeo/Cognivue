@@ -244,7 +244,7 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
 
 // Sync handler (5 seconds)
 function syncTelemetry() {
-  // 7. Disconnected: no heartbeat, no telemetry.
+  // Disconnected: no heartbeat, no telemetry.
   if (!user_id || !extension_connected) {
     return;
   }
@@ -278,7 +278,7 @@ function syncTelemetry() {
         activity_category: category,
         time_spent: unsyncedTimeSeconds,
         tab_switches: tabSwitches,
-        heartbeat: false, // Refinement 4
+        heartbeat: false,
         timestamp: new Date().toISOString()
       };
 
@@ -288,37 +288,41 @@ function syncTelemetry() {
         body: JSON.stringify(payload)
       })
       .then(async (response) => {
-        if (!response.ok) throw new Error("HTTP error " + response.status);
+        if (!response.ok) {
+          const text = await response.text().catch(() => "");
+          console.error(`Telemetry sync POST failed: ${response.status} - ${text}`);
+          throw new Error(`HTTP error ${response.status}: ${text}`);
+        }
         unsyncedTimeSeconds = 0;
         syncStatus = "Synced";
         saveState();
       })
       .catch((err) => {
-        console.error("Cognivue Telemetry sync failed (backend offline):", err);
+        console.error("Cognivue Telemetry sync failed:", err);
         syncStatus = "Cloud sync paused";
         saveState();
       });
     });
   } else {
-    // Lightweight Heartbeat Sync (Refinement 1)
+    // Lightweight Heartbeat Sync
     const currentDomain = activeDomain || "connected";
     const now = Date.now();
 
-    // 8. Prevent heartbeat spam: If activeDomain has not changed and last heartbeat < 5s ago, skip duplicate POST.
+    // Prevent heartbeat spam: If activeDomain has not changed and last heartbeat < 5s ago, skip duplicate POST.
     if (currentDomain === lastHeartbeatDomain && (now - lastHeartbeatTime) < 5000) {
       return;
     }
 
     const payload = {
       user_id: user_id,
-      session_id: null, // null session_id (Requirement 3)
-      domain: currentDomain,
-      title: activeTitle || "Extension heartbeat",
-      detected_mode: focusMode || "General",
-      activity_category: category || "Extension Heartbeat",
-      time_spent: 0, // Heartbeats do not increment totals (Refinement 2)
+      session_id: null,
+      domain: activeDomain || "connected",
+      title: "Extension heartbeat",
+      detected_mode: "General",
+      activity_category: "Extension Heartbeat",
+      time_spent: 0,
       tab_switches: 0,
-      heartbeat: true, // Refinement 3
+      heartbeat: true,
       timestamp: new Date().toISOString()
     };
 
@@ -328,7 +332,11 @@ function syncTelemetry() {
       body: JSON.stringify(payload)
     })
     .then(async (response) => {
-      if (!response.ok) throw new Error("HTTP error " + response.status);
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        console.error(`Telemetry heartbeat POST failed: ${response.status} - ${text}`);
+        throw new Error(`HTTP error ${response.status}: ${text}`);
+      }
       lastHeartbeatTime = Date.now();
       lastHeartbeatDomain = currentDomain;
       syncStatus = "Synced";
