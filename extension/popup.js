@@ -181,6 +181,17 @@ function updatePopupHUD() {
         
         bannerTextEl.textContent = "Connect account to start tracking";
         bannerEl.className = "mode-banner bg-gradient-paused";
+      } else if (result.syncStatus === "Cloud sync paused") {
+        // State 1.5: Connected but backend unreachable
+        statusTextEl.textContent = "CLOUD SYNC PAUSED";
+        statusTextEl.style.color = "var(--amber-accent)";
+        
+        statusDotEl.className = "status-dot pulse-amber";
+        statusDotEl.style.backgroundColor = "var(--amber-accent)";
+        statusDotEl.style.boxShadow = "0 0 8px var(--amber-accent)";
+        
+        bannerTextEl.textContent = "Cloud sync paused - Backend offline";
+        bannerEl.className = "mode-banner bg-gradient-paused";
       } else if (!trackingEnabled) {
         // State 2: Connected + Paused
         statusTextEl.textContent = "PAUSED";

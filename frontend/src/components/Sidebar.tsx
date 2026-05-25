@@ -9,8 +9,7 @@ import {
   Settings, 
   LogOut 
 } from 'lucide-react';
-import { clearActiveSession, getLocalSession, getActiveSession, getSessionMetrics, getExtensionActivity } from '../services/api';
-import { determineExtensionStatus } from '../utils/extensionStatus';
+import { clearActiveSession, getLocalSession, getActiveSession, getExtensionActivity } from '../services/api';
 
 interface SidebarProps {
   activeItem: string;
@@ -27,7 +26,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  const [sysState, setSysState] = useState<'idle' | 'initializing' | 'live' | 'paused' | 'disconnected'>('idle');
+  const [sysState, setSysState] = useState<'idle' | 'initializing' | 'live' | 'heartbeat' | 'paused' | 'disconnected'>('idle');
 
   useEffect(() => {
     let isMounted = true;
@@ -42,30 +41,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
         // 1. Fetch extension activity to determine extension connection
         const extData = await getExtensionActivity(session.userId).catch(() => null);
         
-        // Determine extension connection using shared status helper!
-        const extStatus = determineExtensionStatus(extData || []);
+        // Find latest activity and calculate time diff
+        let latestActivity: any = null;
+        let lastSync = 0;
+        if (extData && extData.length > 0) {
+          const getTimestamp = (activity: any): number => {
+            const rawVal = activity?.recorded_at || activity?.created_at || activity?.timestamp;
+            if (!rawVal) return 0;
+            return new Date(rawVal).getTime();
+          };
+          const sorted = [...extData].sort((a, b) => getTimestamp(b) - getTimestamp(a));
+          latestActivity = sorted[0];
+          lastSync = getTimestamp(latestActivity);
+        }
 
-        if (extStatus.state === 'connected') {
-          // Extension is connected and actively sending telemetry (within 2 minutes)
-          if (isMounted) setSysState('live'); // Shows "Browser CV Active"
-        } else if (extStatus.state === 'paused') {
-          // Extension is paused (within 10 minutes)
-          if (isMounted) setSysState('paused'); // Shows "Stream Stalled"
+        const now = Date.now();
+        const diffMins = lastSync && !isNaN(lastSync) ? (now - lastSync) / 60000 : Infinity;
+
+        // Check if there is an active session on the backend
+        const activeSess = await getActiveSession(session.userId).catch(() => null);
+        const hasActiveSession = activeSess && activeSess.id && !activeSess.end_time;
+
+        // Evaluate priority:
+        if (diffMins < 2 && latestActivity && (latestActivity.heartbeat === false || latestActivity.heartbeat === 'false' || !latestActivity.heartbeat)) {
+          // Priority 1: ACTIVE TELEMETRY (Recent activity with heartbeat=false)
+          if (isMounted) setSysState('live');
+        } else if (diffMins < 2 && latestActivity && (latestActivity.heartbeat === true || latestActivity.heartbeat === 'true')) {
+          // Priority 2: HEARTBEAT (Recent activity with heartbeat=true)
+          if (isMounted) setSysState('heartbeat');
+        } else if (hasActiveSession) {
+          // Priority 3: SESSION WAITING (Active session exists on backend, but extension not recently synced)
+          if (isMounted) setSysState('initializing');
         } else {
-          // Extension is not connected (older than 10 minutes or no sync data)
-          const activeSess = await getActiveSession(session.userId).catch(() => null);
-          if (activeSess && activeSess.id && !activeSess.end_time) {
-            // Focus session is active on the backend, but extension has no recent telemetry
-            const metrics = await getSessionMetrics(activeSess.id).catch(() => null);
-            if (!metrics || metrics.length === 0) {
-              if (isMounted) setSysState('initializing'); // Shows "Connecting Stream..."
+          // Priority 4: DISCONNECTED / IDLE
+          if (isMounted) {
+            const hasAnyTelemetry = extData && extData.length > 0;
+            if (diffMins < 10 && latestActivity) {
+              setSysState('paused'); // Shows "Stream Stalled" (Telemetry temporarily paused)
             } else {
-              if (isMounted) setSysState('paused'); // Shows "Stream Stalled"
-            }
-          } else {
-            // No active session and extension is offline/idle
-            if (isMounted) {
-              const hasAnyTelemetry = extData && extData.length > 0;
               setSysState(hasAnyTelemetry ? 'idle' : 'disconnected');
             }
           }
@@ -95,6 +108,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           barColor: 'from-violet-500 to-cyan-400',
           barAnim: 'animate-pulse',
           barOpacity: 'opacity-50',
+          title: 'Browser CV Active'
+        };
+      case 'heartbeat':
+        return {
+          text: 'Extension connected. Waiting for focus session.',
+          dotColor: 'bg-cyan-400',
+          dotShadow: 'shadow-[0_0_8px_rgba(34,211,238,0.5)]',
+          barColor: 'from-violet-500 to-cyan-400',
+          barAnim: '',
+          barOpacity: 'opacity-30',
           title: 'Browser CV Active'
         };
       case 'initializing':

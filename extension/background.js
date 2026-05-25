@@ -67,6 +67,10 @@ let trackingEnabled = false; // Default to false for fresh install!
 let extension_connected = false;
 let active_session_id = "";
 
+// Heartbeat deduplication tracking
+let lastHeartbeatTime = 0;
+let lastHeartbeatDomain = "";
+
 function initializeState() {
   chrome.storage.local.get([
     "activeDomain", "activeTitle", "category", "focusMode", "tabSwitches", "syncStatus",
@@ -240,37 +244,81 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
 
 // Sync handler (5 seconds)
 function syncTelemetry() {
-  // 7. Before every sync: if (!user_id || !trackingEnabled) return;
-  // Refinement: syncTelemetry must require user_id && extension_connected && trackingEnabled && active_session_id
-  if (!user_id || !trackingEnabled || !extension_connected || !active_session_id) {
+  // 7. Disconnected: no heartbeat, no telemetry.
+  if (!user_id || !extension_connected) {
     return;
   }
   
-  accumulateTime(); // Ensure latest time is tracked
-  
-  // Re-check conditions in case accumulateTime changed them
-  if (!user_id || !trackingEnabled || !extension_connected || !active_session_id) {
-    return;
-  }
+  const canTrack = trackingEnabled && !!active_session_id;
 
-  if (unsyncedTimeSeconds === 0) {
-    syncStatus = "Synced";
-    saveState();
-    return;
-  }
+  if (canTrack) {
+    // Normal Telemetry Sync
+    accumulateTime(); // Ensure latest time is tracked
+    
+    // Re-check conditions in case accumulateTime changed them
+    if (!user_id || !trackingEnabled || !extension_connected || !active_session_id) {
+      return;
+    }
 
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const title = tabs && tabs[0] ? tabs[0].title : "";
+    if (unsyncedTimeSeconds === 0) {
+      syncStatus = "Synced";
+      saveState();
+      return;
+    }
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const title = tabs && tabs[0] ? tabs[0].title : "";
+
+      const payload = {
+        user_id: user_id,
+        session_id: active_session_id,
+        domain: activeDomain || "unknown",
+        title: title,
+        detected_mode: focusMode,
+        activity_category: category,
+        time_spent: unsyncedTimeSeconds,
+        tab_switches: tabSwitches,
+        heartbeat: false, // Refinement 4
+        timestamp: new Date().toISOString()
+      };
+
+      fetch(`${API_BASE_URL}/extension/activity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("HTTP error " + response.status);
+        unsyncedTimeSeconds = 0;
+        syncStatus = "Synced";
+        saveState();
+      })
+      .catch((err) => {
+        console.error("Cognivue Telemetry sync failed (backend offline):", err);
+        syncStatus = "Cloud sync paused";
+        saveState();
+      });
+    });
+  } else {
+    // Lightweight Heartbeat Sync (Refinement 1)
+    const currentDomain = activeDomain || "connected";
+    const now = Date.now();
+
+    // 8. Prevent heartbeat spam: If activeDomain has not changed and last heartbeat < 5s ago, skip duplicate POST.
+    if (currentDomain === lastHeartbeatDomain && (now - lastHeartbeatTime) < 5000) {
+      return;
+    }
 
     const payload = {
       user_id: user_id,
-      session_id: active_session_id,
-      domain: activeDomain || "unknown",
-      title: title,
-      detected_mode: focusMode,
-      activity_category: category,
-      time_spent: unsyncedTimeSeconds,
-      tab_switches: tabSwitches,
+      session_id: null, // null session_id (Requirement 3)
+      domain: currentDomain,
+      title: activeTitle || "Extension heartbeat",
+      detected_mode: focusMode || "General",
+      activity_category: category || "Extension Heartbeat",
+      time_spent: 0, // Heartbeats do not increment totals (Refinement 2)
+      tab_switches: 0,
+      heartbeat: true, // Refinement 3
       timestamp: new Date().toISOString()
     };
 
@@ -281,16 +329,17 @@ function syncTelemetry() {
     })
     .then(async (response) => {
       if (!response.ok) throw new Error("HTTP error " + response.status);
-      unsyncedTimeSeconds = 0;
+      lastHeartbeatTime = Date.now();
+      lastHeartbeatDomain = currentDomain;
       syncStatus = "Synced";
       saveState();
     })
     .catch((err) => {
-      console.error("Cognivue Telemetry sync failed (backend offline):", err);
+      console.error("Cognivue Telemetry heartbeat failed:", err);
       syncStatus = "Cloud sync paused";
       saveState();
     });
-  });
+  }
 }
 
 // Active session & metrics polling (5 seconds)

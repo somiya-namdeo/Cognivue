@@ -169,6 +169,8 @@ class BehaviorService:
         domain_modes = {}
 
         for row in browser_rows:
+            if row.get("heartbeat") is True:
+                continue
             duration = row.get("active_duration_seconds", 0)
             switches = row.get("tab_switches", 0)
             domain = row.get("domain", "unknown")

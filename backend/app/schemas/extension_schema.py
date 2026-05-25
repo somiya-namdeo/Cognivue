@@ -13,6 +13,7 @@ class ActivitySyncRequest(BaseModel):
     time_spent: int = Field(..., ge=0, description="Elapsed focus duration in seconds")
     tab_switches: int = Field(..., ge=0, description="Tab switch count during synchronization interval")
     timestamp: Optional[str] = Field(None, description="Client-side timestamp")
+    heartbeat: Optional[bool] = Field(False, description="Flag indicating if this is a connection heartbeat")
 
 class ActivitySyncResponse(BaseModel):
     id: UUID
@@ -24,3 +25,4 @@ class ActivitySyncResponse(BaseModel):
     active_duration_seconds: int
     tab_switches: int
     recorded_at: datetime
+    heartbeat: Optional[bool] = False

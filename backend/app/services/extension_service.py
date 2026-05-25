@@ -52,7 +52,8 @@ class ExtensionService:
                 "risk_level": risk_level,
                 "active_duration_seconds": activity_data.time_spent,
                 "tab_switches": activity_data.tab_switches,
-                "recorded_at": now_iso
+                "recorded_at": now_iso,
+                "heartbeat": activity_data.heartbeat or False
             }
             
             insert_response = supabase.table("browser_activity").insert(insert_data).execute()
