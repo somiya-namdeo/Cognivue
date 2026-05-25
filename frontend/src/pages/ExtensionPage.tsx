@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { 
@@ -19,7 +19,8 @@ import { getLocalSession, getExtensionActivity } from '../services/api';
 import type { ExtensionActivityResponse } from '../services/api';
 import { PrivacyManifestoModal } from '../components/PrivacyManifestoModal';
 import { pushNotification } from '../services/notifications';
-import { determineExtensionStatus } from '../utils/extensionStatus';
+import { determineExtensionStatus, getReconnectingStatus, recordSuccess, recordFailure, shouldDisconnect } from '../utils/extensionStatus';
+import type { ExtensionState } from '../utils/extensionStatus';
 
 export const ExtensionPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState('Extension');
@@ -49,35 +50,70 @@ export const ExtensionPage: React.FC = () => {
     return () => window.removeEventListener('message', handleMessage);
   }, [userId]);
 
+  const lastDataRef = React.useRef<ExtensionActivityResponse[] | null>(null);
+  // Overlap guard: skip next interval if a request is already running
+  const isFetchingRef = useRef(false);
+  // Track last resolved state for sticky fallback on errors
+  const lastExtStateRef = useRef<ExtensionState>('disconnected');
+
   React.useEffect(() => {
-    if (userId) {
-      getExtensionActivity(userId)
-        .then(data => {
-          if (data && data.length > 0) {
-            setLatestActivity(data[0]);
-            const resolved = determineExtensionStatus(data);
-            setExtStatus(resolved.state);
-            
-            // Check if last sync is stale (>10 min)
-            if (resolved.state === 'disconnected') {
-              const rawTime = data[0].recorded_at || data[0].created_at || data[0].timestamp || "";
-              const lastSync = new Date(rawTime).getTime();
-              const diffMins = (Date.now() - lastSync) / 60000;
-              pushNotification(
-                'Extension Offline',
-                `No telemetry received for ${Math.round(diffMins)} minutes. Ensure the browser extension is active.`,
-                'warning',
-                '/extension'
-              );
-            }
-          } else {
-            setExtStatus('waiting');
+    if (!userId) return;
+
+    const checkStatus = async () => {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+      try {
+        const data = await getExtensionActivity(userId);
+        lastDataRef.current = data;
+        if (data && data.length > 0) {
+          setLatestActivity(data[0]);
+          const resolved = determineExtensionStatus(data);
+          lastExtStateRef.current = resolved.state;
+          recordSuccess();
+          setExtStatus(resolved.state);
+          setFetchError(null);
+          
+          // Notify if telemetry has gone stale
+          if (resolved.state === 'disconnected') {
+            const rawTime = data[0].recorded_at || data[0].created_at || data[0].timestamp || "";
+            const lastSync = new Date(rawTime).getTime();
+            const diffMins = (Date.now() - lastSync) / 60000;
+            pushNotification(
+              'Extension Offline',
+              `No telemetry received for ${Math.round(diffMins)} minutes. Ensure the browser extension is active.`,
+              'warning',
+              '/extension'
+            );
           }
-        })
-        .catch(() => {
-          setFetchError("Could not connect to backend to check extension status.");
-        });
-    }
+        } else {
+          setExtStatus('disconnected');
+        }
+      } catch {
+        // Transient failure — use sticky cache, show reconnecting not disconnected
+        recordFailure();
+        if (lastDataRef.current && lastDataRef.current.length > 0) {
+          const data = lastDataRef.current;
+          setLatestActivity(data[0]);
+          const resolved = determineExtensionStatus(data);
+          lastExtStateRef.current = resolved.state;
+          setExtStatus(resolved.state);
+        } else {
+          const fallback = shouldDisconnect()
+            ? { state: 'disconnected' as ExtensionState, detail: 'Extension not reachable.' }
+            : getReconnectingStatus(lastExtStateRef.current);
+          setExtStatus(fallback.state);
+          if (fallback.state === 'disconnected') {
+            setFetchError('Could not connect to backend to check extension status.');
+          }
+        }
+      } finally {
+        isFetchingRef.current = false;
+      }
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 15000);
+    return () => clearInterval(interval);
   }, [userId]);
 
   const demoConnectKey = userId ? btoa(userId) : '';

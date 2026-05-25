@@ -39,12 +39,13 @@ class MetricsService:
                 
             session = session_response.data[0]
             
-            # 2. Validate that the focus session is active (has not ended)
+            # 2. If the session has already ended, silently discard the incoming metric
+            #    and return 200 so the CV loop does not spam 400 errors after session close.
             if session.get("end_time") is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Cannot add metrics to an ended session."
+                logger.info(
+                    f"add_metric: session {metric_data.session_id} already ended – metric discarded gracefully."
                 )
+                return {"status": "ignored", "reason": "session_ended"}
             
             # 3. Construct and insert raw cognitive metric record (no session score averaging yet)
             now_iso = datetime.now(timezone.utc).isoformat()
@@ -69,6 +70,7 @@ class MetricsService:
                     detail="Failed to record cognitive metric. Empty database response."
                 )
                 
+            logger.info(f"add_metric: Successfully inserted cognitive metric in DB. id={insert_response.data[0].get('id')} session_id={metric_data.session_id} focus={metric_data.focus_score}")
             return insert_response.data[0]
             
         except HTTPException as he:
@@ -123,7 +125,7 @@ class MetricsService:
             )
 
     @staticmethod
-    async def get_latest_metric(session_id: UUID) -> dict:
+    async def get_latest_metric(session_id: UUID) -> dict | None:
         """
         Retrieves the latest cognitive metric recorded for a session.
         """
@@ -142,11 +144,10 @@ class MetricsService:
                 .execute()
                 
             if not response.data or len(response.data) == 0:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="No metrics found for this session."
-                )
+                logger.info(f"get_latest_metric: No metrics exist yet in DB for session {session_id}.")
+                return None
                 
+            logger.info(f"get_latest_metric: Found metric: id={response.data[0].get('id')} focus={response.data[0].get('focus_score')}")
             return response.data[0]
             
         except HTTPException as he:

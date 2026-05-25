@@ -3,6 +3,8 @@ import { Camera as CameraIcon, ShieldAlert, Activity, VideoOff } from 'lucide-re
 import { FaceMesh } from '@mediapipe/face_mesh';
 import type { Results } from '@mediapipe/face_mesh';
 
+import { API_BASE_URL } from '../services/api';
+
 interface BrowserCVMonitorProps {
   isActive: boolean;
   sessionId: string | null;
@@ -389,7 +391,7 @@ export function BrowserCVMonitor({ isActive, sessionId }: BrowserCVMonitorProps)
             fatigue_score: Math.round(m.fatigue_score)
           };
           
-          const response = await fetch('http://127.0.0.1:8000/metrics/add', {
+          const response = await fetch(`${API_BASE_URL}/metrics/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)

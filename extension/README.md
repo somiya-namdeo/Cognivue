@@ -1,120 +1,82 @@
-# Cognivue Focus Coach — Universal Browser Companion (MV3)
+# Cognivue Chrome Extension Companion
 
-A privacy-first real-time cognitive HUD browser extension designed to track active focus windows, categorize browsing contexts universally, and prepare for live desktop web-app synchronizations.
+A Manifest V3 Chrome Extension serving as a lightweight contextual focus coach in the browser toolbar, tracking active tab focus and time intervals.
 
----
-
-## 🛡️ Privacy Guarantee & Ethos
-
-This extension is built on strict safety and transparency principles:
-- **No Page Scraping**: Never reads or parses the HTML content of your websites.
-- **No Keystroke Tracking**: Never logs or records keystrokes.
-- **No Screenshots**: Never captures screenshots of your browser.
-- **No Browsing History Export**: Never compiles or uploads raw browsing logs.
-- **Zero Webcam Access in Extension**: Facial telemetry is processed securely via the main desktop agent, maintaining full camera transparency.
-
-**This extension works universally across websites by categorizing only the active domain, not reading page content.**
+## Companion Overview
+The Cognivue toolbar companion runs in Google Chrome and Chrome-based browsers. It helps the local cognitive engine categorize web browsing behavior (e.g. distinguishing productive work on GitHub from distracting cycles on social media) and sends telemetry data to the web app dashboard.
 
 ---
 
-## ⚡ Universal Cognitive Modes
+## Strict Privacy Boundaries
 
-The HUD dynamically evaluates the active tab's domain and transitions between specialized focus modes, updating the header banner and color accents automatically:
+Cognivue is built with a privacy-first architecture. The extension collects only what is absolutely necessary to compute productivity scores.
 
-| Domain | Cognitive Mode | HUD Header | Category Badge | Accent Color |
-| :--- | :--- | :--- | :--- | :--- |
-| `meet.google.com`, `zoom.us`, `teams.microsoft.com` | **Meeting** | Meeting Focus Mode Active | Meeting / Collaboration | Emerald / Green |
-| `github.com`, `stackoverflow.com`, `localhost`, `leetcode.com`, `codeforces.com` | **Coding** | Coding Focus Mode Active | Development | Violet / Purple |
-| `docs.google.com`, `notion.so`, `medium.com`, `arxiv.org` | **Study** | Deep Study Mode Active | Study / Writing | Blue / Slate |
-| `youtube.com`, `coursera.org`, `udemy.com` | **Learning** | Learning Mode Active | Learning / Tutorial | Cyan / Light Blue |
-| `instagram.com`, `x.com`, `twitter.com`, `reddit.com` | **Distracting** | Distraction Risk Detected | Social / Entertainment | Red / Amber |
-| *All other domains* | **General** | Universal Focus Mode Active | General Browsing | Cyan / Violet |
+### What it tracks:
+* Active Domain: The base domain name of the tab you are currently viewing (e.g. github.com, docs.google.com).
+* Active Mode & Category: Auto-classifies the domain into productivity modes (Coding, Learning, Meeting, Study, Distracting, General).
+* Tab Switch Count: Frequency of context switching during a sync interval.
+* Time Spent: Elapsed active focus duration on a domain (pauses when computer goes idle or tabs switch).
+* Heartbeat Connection: Periodic 5-second lightweight pings mapping active status to backend when focus sessions are waiting.
 
----
-
-## 🚀 How to Install and Test Locally
-
-Chrome Web Store publishing is planned for the production release. For now, you can install the extension locally:
-
-1. **Download & Extract**: Download the `cognivue-extension.zip` from the dashboard and extract it to a folder on your computer.
-2. **Open Extensions**: In your browser, navigate to:
-   ```txt
-   chrome://extensions
-   ```
-3. **Enable Developer Mode**: Toggle the "Developer mode" switch in the top right corner.
-4. **Load Unpacked**: Click the **Load unpacked** button in the top-left corner.
-5. **Select Folder**: Select your extracted `cognivue-extension` folder.
-6. **Pin the Extension**: Click the Extensions puzzle icon in the toolbar, pin **Cognivue Focus Coach**, and verify:
-   - The **Active Domain** and **Activity Category** update reactively.
-   - The **Detected Mode** changes alongside the dynamic header copy and gradient animations.
-   - The **Time Spent** ticks up second-by-second while you focus on the tab.
-   - **Tab Switches** increment every time you click active windows.
+### What it NEVER tracks:
+* Keystrokes: The extension never monitors typing or keystroke sequences.
+* Screenshots: No screens are captured, recorded, or saved.
+* Page Content: No inputs, text fields, page html, or private content are read.
+* Raw Camera/Video feeds: Eye mesh computer vision calculations are done entirely inside the main React web app sandbox, not inside the extension background thread.
 
 ---
 
-## 🔮 Future Roadmap (TODOs)
-
-- **Backend Metrics Integration**: Fetch dynamic face focus telemetry from `GET http://127.0.0.1:8000/metrics/latest/{session_id}`.
-- **Web App Session Sync**: Dynamically save the active focus `session_id` to `chrome.storage.local` to trigger automatic real-time metric HUD tracking.
-- **Optional Google Meet Floating Overlay**: Create a configurable picture-in-picture style focus ring on camera/meeting calls using local content-scripts.
-- **MediaPipe OpenCV CV Telemetry**: Seamlessly connect CV visual gaze variables directly into the dashboard.
-- **Custom Site Classification**: Allow users to customize their personal list of productive, educational, and distracting domains through a dedicated settings tab.
+## Sub-module Contents
+* manifest.json: Defines extension metadata, declarative host permission requests, and active service worker scopes.
+* background.js: Service worker running on alarms, accumulating focus times on domains, managing pauses, and sending heartbeat sync payloads.
+* popup.html / popup.js / popup.css: Premium dark glassmorphic toolbar user interface with account connect/disconnect selectors, timer meters, and manual sync controllers.
 
 ---
 
-## 🛠️ Supabase Database Schema
+## Installation & Setup
 
-To support synchronization of privacy-first browser telemetry, the backend stores events in a table named `browser_activity`. Below is the complete SQL DDL schema required to provision this table in Supabase:
+1. Open Google Chrome Extensions Manager:
+   - In Chrome, navigate to chrome://extensions in the address bar.
+2. Enable Developer Mode:
+   - Toggle the Developer mode switch in the top-right corner to active.
+3. Load the unpacked project:
+   - Click the Load unpacked button in the top-left corner.
+   - Select the /extension directory of this cloned repository.
+4. Pin the extension:
+   - Click the extensions puzzle icon in your Chrome toolbar and pin Cognivue.
 
-```sql
-CREATE TABLE IF NOT EXISTS browser_activity (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    domain VARCHAR(255) NOT NULL,
-    category VARCHAR(255) NOT NULL,
-    mode VARCHAR(100) NOT NULL,
-    risk_level VARCHAR(50) NOT NULL,
-    active_duration_seconds INT NOT NULL DEFAULT 0,
-    tab_switches INT NOT NULL DEFAULT 0,
-    recorded_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
-);
+---
 
--- Enable RLS and add basic security policies as needed
-ALTER TABLE browser_activity ENABLE ROW LEVEL SECURITY;
+## Connection Flow
 
-CREATE POLICY "Allow authenticated read and write" 
-ON browser_activity 
-FOR ALL 
-TO authenticated 
-USING (true) 
-WITH CHECK (true);
+To link the toolbar HUD to your active web account:
+1. Open the hosted Cognivue web app dashboard.
+2. Go to the Extension page or Settings > Chrome extension section.
+3. Copy your base64 local demo connection key.
+4. Click the Cognivue icon in your browser toolbar to open the popup HUD.
+5. Click Connect, paste your key, and submit.
+6. The extension will link successfully, and sync status will update to "Synced".
+
+---
+
+## Telemetry heartbeats
+When the extension is linked but no focus session is actively running on the dashboard, the service worker switches to lightweight Heartbeat Sync:
+* Submits zeroed accumulators (time_spent: 0, tab_switches: 0) and sets session_id to null to isolate them from analytical averages.
+* Prevents data pollution, while ensuring the Settings and Sidebar pages can reactively display the "Extension: Connected" status in real time.
+
+---
+
+## Troubleshooting
+
+If the popup HUD displays CLOUD SYNC PAUSED or fails to update:
+1. Check Backend URL: Ensure the API_BASE_URL inside background.js matches your running backend endpoint (e.g. http://127.0.0.1:8000 locally, or your production hosted URL).
+2. Reload Extension: Open chrome://extensions and click the circular refresh arrow on the Cognivue card.
+3. Reset Extension Data: Open the extension popup, click Reset Data (or Disconnect to clear linked states) to flush accumulated domain counters.
+4. Inspect Console Logs: Right-click the extension icon, choose Inspect popup (or inspect background page) to review detailed HTTP failure logs and payloads.
+5. Verify Render API Logs: Ensure your FastAPI backend Render log has no incoming validation schema rejects (sync checks automatically clean invalid session IDs to None).
+
+### Deployed API Endpoint
+Configure the deployed API address at the top of /extension/background.js:
+```javascript
+const API_BASE_URL = "http://127.0.0.1:8000"; // [Add Render API hosted endpoint link here for production]
 ```
-
----
-
-## 🧪 Local Development Testing
-
-To manually connect the extension to a local developer profile during testing:
-
-### 1. Retrieve a Valid Profile UUID
-Connect to your Supabase studio or query the database to find an existing user ID in the `profiles` table.
-Alternatively, start the FastAPI server and navigate to Swagger `http://127.0.0.1:8000/docs` to read existing profiles.
-
-### 2. Set the `user_id` in chrome.storage.local
-Since the extension does not force a login flow for local development, you can manually inject a valid profile UUID into the extension's sandbox:
-
-1. Open **Google Chrome** and navigate to `chrome://extensions`.
-2. Find **Cognivue Focus Coach** and click on the **service worker** link (under "Inspect views") to open the background inspector panel.
-3. Select the **Console** tab in the inspector.
-4. Execute the following command, replacing `'your-valid-uuid-here'` with your profile UUID:
-   ```javascript
-   chrome.storage.local.set({ user_id: 'your-valid-uuid-here' }, () => {
-     console.log('Manually set test user_id in chrome.storage.local');
-   });
-   ```
-5. To check that it has been set successfully, run:
-   ```javascript
-   chrome.storage.local.get('user_id', console.log);
-   ```
-6. Alternatively, inspect the popup HUD by clicking on the extension icon in the toolbar, right-clicking inside the popup, choosing **Inspect**, opening the console, and running the same `chrome.storage.local.set` command.
-7. Once set, the cloud synchronization indicator will immediately transition from `"Local Only"` to `"Synced"`, and starts syncing tracking intervals to `http://127.0.0.1:8000/extension/activity` every 30 seconds!

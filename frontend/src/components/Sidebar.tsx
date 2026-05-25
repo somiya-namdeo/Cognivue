@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -10,6 +10,8 @@ import {
   LogOut 
 } from 'lucide-react';
 import { clearActiveSession, getLocalSession, getActiveSession, getExtensionActivity } from '../services/api';
+import { determineExtensionStatus, getReconnectingStatus, recordSuccess, recordFailure, shouldDisconnect } from '../utils/extensionStatus';
+import type { ExtensionState } from '../utils/extensionStatus';
 
 interface SidebarProps {
   activeItem: string;
@@ -17,6 +19,18 @@ interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Sidebar system state (superset of extension state used for display)
+// ─────────────────────────────────────────────────────────────────────────────
+type SidebarSysState =
+  | 'live'           // Active telemetry + active session
+  | 'heartbeat'      // Extension heartbeat + no active session
+  | 'initializing'   // Active session but extension not yet synced
+  | 'reconnecting'   // Temporary request failure; connection not yet lost
+  | 'paused'         // Telemetry stalled (5–15 min gap)
+  | 'disconnected'   // No activity > 15 min
+  | 'idle';          // Logged in but never connected any extension
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   activeItem, 
@@ -26,30 +40,80 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  const [sysState, setSysState] = useState<'idle' | 'initializing' | 'live' | 'heartbeat' | 'paused' | 'disconnected'>('idle');
+  const [sysState, setSysState] = useState<SidebarSysState>('idle');
+
+  // Sticky caches so a single failed poll never flips state backwards
+  const lastExtDataRef       = useRef<any[] | null>(null);
+  const lastActiveSessionRef = useRef<any | null>(null);
+  const lastExtStateRef      = useRef<ExtensionState>('disconnected');
+
+  // Overlap guard: skip if a check is already in progress
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
+
     const checkStatus = async () => {
+      // Skip overlapping requests
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+
       const session = getLocalSession();
       if (!session.userId) {
-         if (isMounted) setSysState('disconnected');
-         return;
+        isFetchingRef.current = false;
+        if (isMounted) setSysState('disconnected');
+        return;
       }
 
       try {
-        // 1. Fetch extension activity to determine extension connection
-        const extData = await getExtensionActivity(session.userId).catch(() => null);
-        
-        // Find latest activity and calculate time diff
+        // ── 1. Extension activity (with sticky fall-back on error) ────────────
+        let extData: any[] | null = null;
+        try {
+          extData = await getExtensionActivity(session.userId);
+          if (extData) {
+            lastExtDataRef.current = extData;
+            recordSuccess();
+          }
+        } catch {
+          // Request failed – increment failure counter
+          recordFailure();
+          extData = lastExtDataRef.current;
+          if (isMounted) {
+            const reconnecting = getReconnectingStatus(lastExtStateRef.current);
+            // Only show reconnecting if we haven't crossed the disconnect threshold
+            if (reconnecting.state === 'reconnecting' && !shouldDisconnect()) {
+              setSysState('reconnecting');
+              isFetchingRef.current = false;
+              return;
+            }
+          }
+        }
+
+        // ── 2. Active session (404 = no session, not an extension error) ─────
+        let activeSess: any = null;
+        try {
+          activeSess = await getActiveSession(session.userId);
+          // getActiveSession now returns null for 404, never throws for it
+          lastActiveSessionRef.current = activeSess;
+        } catch {
+          // Network/5xx error – fall back to last known session state
+          activeSess = lastActiveSessionRef.current;
+        }
+
+        // ── 3. Evaluate extension state from activity data ────────────────────
+        const resolved = determineExtensionStatus(extData ?? []);
+        lastExtStateRef.current = resolved.state;
+
+        const getTimestamp = (activity: any): number => {
+          const rawVal = activity?.recorded_at || activity?.created_at || activity?.timestamp;
+          if (!rawVal) return 0;
+          const ms = new Date(rawVal).getTime();
+          return isNaN(ms) ? 0 : ms;
+        };
+
         let latestActivity: any = null;
         let lastSync = 0;
         if (extData && extData.length > 0) {
-          const getTimestamp = (activity: any): number => {
-            const rawVal = activity?.recorded_at || activity?.created_at || activity?.timestamp;
-            if (!rawVal) return 0;
-            return new Date(rawVal).getTime();
-          };
           const sorted = [...extData].sort((a, b) => getTimestamp(b) - getTimestamp(a));
           latestActivity = sorted[0];
           lastSync = getTimestamp(latestActivity);
@@ -58,38 +122,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
         const now = Date.now();
         const diffMins = lastSync && !isNaN(lastSync) ? (now - lastSync) / 60000 : Infinity;
 
-        // Check if there is an active session on the backend
-        const activeSess = await getActiveSession(session.userId).catch(() => null);
+        // Active session = exists and not ended
         const hasActiveSession = activeSess && activeSess.id && !activeSess.end_time;
 
-        // Evaluate priority:
-        if (diffMins < 2 && latestActivity && (latestActivity.heartbeat === false || latestActivity.heartbeat === 'false' || !latestActivity.heartbeat)) {
-          // Priority 1: ACTIVE TELEMETRY (Recent activity with heartbeat=false)
-          if (isMounted) setSysState('live');
-        } else if (diffMins < 2 && latestActivity && (latestActivity.heartbeat === true || latestActivity.heartbeat === 'true')) {
-          // Priority 2: HEARTBEAT (Recent activity with heartbeat=true)
-          if (isMounted) setSysState('heartbeat');
+        // ── 4. Priority state resolution ─────────────────────────────────────
+        if (!isMounted) return;
+
+        if (diffMins < 5 && latestActivity &&
+            (latestActivity.heartbeat === false || latestActivity.heartbeat === 'false' || !latestActivity.heartbeat)) {
+          // Recent full telemetry (not heartbeat)
+          setSysState('live');
+        } else if (diffMins < 5 && latestActivity) {
+          // Recent heartbeat only
+          setSysState('heartbeat');
         } else if (hasActiveSession) {
-          // Priority 3: SESSION WAITING (Active session exists on backend, but extension not recently synced)
-          if (isMounted) setSysState('initializing');
+          // Session is active but extension hasn't synced recently
+          setSysState('initializing');
+        } else if (resolved.state === 'paused') {
+          setSysState('paused');
+        } else if (resolved.state === 'disconnected') {
+          // Only show disconnected after 15 min with no activity
+          const hasAnyTelemetry = extData && extData.length > 0;
+          setSysState(hasAnyTelemetry ? 'idle' : 'disconnected');
         } else {
-          // Priority 4: DISCONNECTED / IDLE
-          if (isMounted) {
-            const hasAnyTelemetry = extData && extData.length > 0;
-            if (diffMins < 10 && latestActivity) {
-              setSysState('paused'); // Shows "Stream Stalled" (Telemetry temporarily paused)
-            } else {
-              setSysState(hasAnyTelemetry ? 'idle' : 'disconnected');
-            }
-          }
+          setSysState('idle');
         }
-      } catch (err) {
-        if (isMounted) {
-          setSysState('disconnected');
-        }
+      } catch {
+        // Outer catch: preserve current sysState to prevent flickering
+      } finally {
+        isFetchingRef.current = false;
       }
     };
 
+    // First check immediately, then every 15 seconds
     checkStatus();
     const interval = setInterval(checkStatus, 15000);
     return () => {
@@ -129,6 +194,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           barAnim: 'animate-pulse',
           barOpacity: 'opacity-70',
           title: 'Connecting Stream...'
+        };
+      case 'reconnecting':
+        return {
+          text: 'Reconnecting to cloud sync...',
+          dotColor: 'bg-amber-400',
+          dotShadow: 'shadow-[0_0_8px_rgba(251,191,36,0.4)]',
+          barColor: 'from-amber-500/40 to-amber-400/40',
+          barAnim: 'animate-pulse',
+          barOpacity: 'opacity-50',
+          title: 'Reconnecting...'
         };
       case 'paused':
         return {
@@ -258,7 +333,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={`h-full rounded-full bg-gradient-to-r ${statusConfig.barColor} w-full ${statusConfig.barOpacity} ${statusConfig.barAnim} transition-all duration-500`}
               />
             </div>
-            <span className={`text-[10px] font-medium mt-1.5 block text-left transition-colors duration-300 ${sysState === 'disconnected' ? 'text-red-400/80' : sysState === 'paused' || sysState === 'initializing' ? 'text-amber-400/80' : 'text-zinc-500'}`}>
+            <span className={`text-[10px] font-medium mt-1.5 block text-left transition-colors duration-300 ${sysState === 'disconnected' ? 'text-red-400/80' : sysState === 'paused' || sysState === 'initializing' || sysState === 'reconnecting' ? 'text-amber-400/80' : 'text-zinc-500'}`}>
               {statusConfig.text}
             </span>
           </div>

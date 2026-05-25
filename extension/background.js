@@ -1,35 +1,42 @@
 /**
  * Cognivue Focus Coach - Background Service Worker (Manifest V3)
- * 
- * Privacy-first, domain-only cognitive tracking HUD foundation.
+ *
+ * Privacy-first, domain-only cognitive tracking HUD.
  * Strictly avoids page scraping, keystroke logging, screenshots, or camera streams.
  */
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  CONFIG
+//  Change this one constant to switch between local dev and production.
+//  Local dev : "http://127.0.0.1:8000"
+//  Production: "https://cognivue-rmlz.onrender.com"
+// ─────────────────────────────────────────────────────────────────────────────
 const API_BASE_URL = "https://cognivue-rmlz.onrender.com";
 
-// Extensible Domain Categorization Function
+// ─────────────────────────────────────────────────────────────────────────────
+//  DOMAIN CATEGORISATION
+// ─────────────────────────────────────────────────────────────────────────────
 function categorizeDomain(urlStr) {
   if (!urlStr) {
     return { category: "General Browsing", mode: "General", riskLevel: "low", label: "Universal Focus Mode Active" };
   }
   try {
     const url = new URL(urlStr);
-    const host = url.hostname.toLowerCase();
-    const domain = host.replace(/^www\./, '');
+    const domain = url.hostname.toLowerCase().replace(/^www\./, "");
 
-    if (domain === 'meet.google.com' || domain.includes('zoom.us') || domain.includes('teams.microsoft.com') || domain.includes('teams.live.com')) {
+    if (domain === "meet.google.com" || domain.includes("zoom.us") || domain.includes("teams.microsoft.com") || domain.includes("teams.live.com")) {
       return { category: "Meeting / Collaboration", mode: "Meeting", riskLevel: "low", label: "Meeting Focus Mode Active" };
     }
-    if (domain === 'github.com' || domain === 'stackoverflow.com' || domain === 'localhost' || domain === '127.0.0.1' || domain === 'codeforces.com' || domain === 'leetcode.com') {
+    if (domain === "github.com" || domain === "stackoverflow.com" || domain === "localhost" || domain === "127.0.0.1" || domain === "codeforces.com" || domain === "leetcode.com") {
       return { category: "Development", mode: "Coding", riskLevel: "low", label: "Coding Focus Mode Active" };
     }
-    if (domain === 'docs.google.com' || domain === 'notion.so' || domain === 'medium.com' || domain === 'arxiv.org') {
+    if (domain === "docs.google.com" || domain === "notion.so" || domain === "medium.com" || domain === "arxiv.org") {
       return { category: "Study / Writing", mode: "Study", riskLevel: "low", label: "Deep Study Mode Active" };
     }
-    if (domain.includes('youtube.com') || domain === 'coursera.org' || domain === 'udemy.com') {
+    if (domain.includes("youtube.com") || domain === "coursera.org" || domain === "udemy.com") {
       return { category: "Learning / Tutorial", mode: "Learning", riskLevel: "low", label: "Learning Mode Active" };
     }
-    if (domain === 'instagram.com' || domain === 'x.com' || domain === 'twitter.com' || domain === 'reddit.com') {
+    if (domain === "instagram.com" || domain === "x.com" || domain === "twitter.com" || domain === "reddit.com") {
       return { category: "Social / Entertainment", mode: "Distracting", riskLevel: "high", label: "Distraction Risk Detected" };
     }
     return { category: "General Browsing", mode: "General", riskLevel: "low", label: "Universal Focus Mode Active" };
@@ -42,13 +49,47 @@ function getDomainFromUrl(urlStr) {
   if (!urlStr) return "";
   try {
     const url = new URL(urlStr);
-    return url.hostname.toLowerCase().replace(/^www\./, '');
+    return url.hostname.toLowerCase().replace(/^www\./, "");
   } catch (e) {
     return "";
   }
 }
 
-// State
+// ─────────────────────────────────────────────────────────────────────────────
+//  PAYLOAD VALIDATION HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns true if value is a non-empty string that looks like a UUID.
+ */
+function isValidUUID(value) {
+  if (typeof value !== "string" || !value.trim()) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+}
+
+/**
+ * Sanitises a session_id candidate to a valid UUID string or null.
+ * Rejects: undefined, "", "null", "none", non-UUID strings.
+ */
+function sanitizeSessionId(value) {
+  if (!value) return null;
+  const s = String(value).trim();
+  if (!s || s.toLowerCase() === "null" || s.toLowerCase() === "none" || s === "undefined") return null;
+  return isValidUUID(s) ? s : null;
+}
+
+/**
+ * Ensures a number is a finite non-negative integer.
+ */
+function safeNumber(value) {
+  const n = Number(value);
+  if (!isFinite(n) || isNaN(n) || n < 0) return 0;
+  return Math.round(n);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────────────────────────────────────
 let activeDomain = "";
 let activeTitle = "";
 let category = "General Browsing";
@@ -56,61 +97,64 @@ let focusMode = "General";
 let tabSwitches = 0;
 let syncStatus = "Local only";
 
-// Timer tracking
 let activeDomainStartTime = Date.now();
 let totalTimeByDomain = {};
 let unsyncedTimeSeconds = 0;
 
-// Cached tracking rules and user connection
 let user_id = "";
-let trackingEnabled = false; // Default to false for fresh install!
+let trackingEnabled = false;
 let extension_connected = false;
 let active_session_id = "";
 
-// Heartbeat deduplication tracking
+// Heartbeat deduplication
 let lastHeartbeatTime = 0;
 let lastHeartbeatDomain = "";
 
-function initializeState() {
-  chrome.storage.local.get([
-    "activeDomain", "activeTitle", "category", "focusMode", "tabSwitches", "syncStatus",
-    "activeDomainStartTime", "totalTimeByDomain", "unsyncedTimeSeconds",
-    "user_id", "userId", "trackingEnabled", "extension_connected", "active_session_id"
-  ], (result) => {
-    activeDomain = result.activeDomain || "";
-    activeTitle = result.activeTitle || "";
-    category = result.category || "General Browsing";
-    focusMode = result.focusMode || "General";
-    tabSwitches = result.tabSwitches || 0;
-    syncStatus = result.syncStatus || "Local only";
-    
-    // Safely restore timers or restart them
-    activeDomainStartTime = result.activeDomainStartTime || Date.now();
-    totalTimeByDomain = result.totalTimeByDomain || {};
-    unsyncedTimeSeconds = result.unsyncedTimeSeconds || 0;
-    
-    // Cache connection and tracking state
-    user_id = result.user_id || result.userId || "";
-    trackingEnabled = result.trackingEnabled === true; // default to false
-    extension_connected = !!result.extension_connected;
-    active_session_id = result.active_session_id || "";
+// In-progress guard: prevents two simultaneous telemetry POSTs
+let isSyncing = false;
 
-    // Set default trackingEnabled if it wasn't in storage
-    if (result.trackingEnabled === undefined) {
-      chrome.storage.local.set({ trackingEnabled: false });
+// ─────────────────────────────────────────────────────────────────────────────
+//  STATE INIT & PERSISTENCE
+// ─────────────────────────────────────────────────────────────────────────────
+function initializeState() {
+  chrome.storage.local.get(
+    [
+      "activeDomain", "activeTitle", "category", "focusMode", "tabSwitches", "syncStatus",
+      "activeDomainStartTime", "totalTimeByDomain", "unsyncedTimeSeconds",
+      "user_id", "userId", "trackingEnabled", "extension_connected", "active_session_id"
+    ],
+    (result) => {
+      activeDomain = result.activeDomain || "";
+      activeTitle = result.activeTitle || "";
+      category = result.category || "General Browsing";
+      focusMode = result.focusMode || "General";
+      tabSwitches = result.tabSwitches || 0;
+      syncStatus = result.syncStatus || "Local only";
+
+      activeDomainStartTime = result.activeDomainStartTime || Date.now();
+      totalTimeByDomain = result.totalTimeByDomain || {};
+      unsyncedTimeSeconds = result.unsyncedTimeSeconds || 0;
+
+      user_id = result.user_id || result.userId || "";
+      trackingEnabled = result.trackingEnabled === true;
+      extension_connected = !!result.extension_connected;
+      active_session_id = sanitizeSessionId(result.active_session_id) || "";
+
+      if (result.trackingEnabled === undefined) {
+        chrome.storage.local.set({ trackingEnabled: false });
+      }
+
+      if (!activeDomain) {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs && tabs[0]) {
+            handleTabTransition(tabs[0].url || tabs[0].pendingUrl, tabs[0].title);
+          }
+        });
+      } else {
+        saveState();
+      }
     }
-    
-    // Attempt to recover active tab if it's missing (e.g. extension restart)
-    if (!activeDomain) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs && tabs[0]) {
-          handleTabTransition(tabs[0].url || tabs[0].pendingUrl, tabs[0].title);
-        }
-      });
-    } else {
-      saveState();
-    }
-  });
+  );
 }
 
 function saveState() {
@@ -120,52 +164,49 @@ function saveState() {
   });
 }
 
-// Reactively keep memory variables in sync with chrome.storage.local
+// ─────────────────────────────────────────────────────────────────────────────
+//  REACTIVE STORAGE LISTENER
+// ─────────────────────────────────────────────────────────────────────────────
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === "local") {
-    if (changes.user_id) {
-      user_id = changes.user_id.newValue || "";
+  if (areaName !== "local") return;
+
+  if (changes.user_id) {
+    user_id = changes.user_id.newValue || "";
+  }
+  if (changes.userId) {
+    user_id = changes.userId.newValue || "";
+  }
+  if (changes.trackingEnabled) {
+    const newTracking = changes.trackingEnabled.newValue === true;
+    if (!newTracking) accumulateTime();
+    trackingEnabled = newTracking;
+    if (newTracking) {
+      activeDomainStartTime = Date.now();
+      saveState();
     }
-    if (changes.userId) {
-      user_id = changes.userId.newValue || "";
-    }
-    if (changes.trackingEnabled) {
-      const newTracking = changes.trackingEnabled.newValue === true;
-      if (!newTracking) {
-        // Turning tracking OFF: accumulate any pending time before we stop tracking
-        accumulateTime();
-      }
-      trackingEnabled = newTracking;
-      if (newTracking) {
-        // Turning tracking ON: reset start time to now so we start fresh
-        activeDomainStartTime = Date.now();
-        saveState();
-      }
-    }
-    if (changes.extension_connected) {
-      const newConnected = !!changes.extension_connected.newValue;
-      if (!newConnected) {
-        accumulateTime();
-      }
-      extension_connected = newConnected;
-    }
-    if (changes.active_session_id) {
-      const newSession = changes.active_session_id.newValue || "";
-      if (!newSession) {
-        accumulateTime();
-      }
-      active_session_id = newSession;
-      if (newSession) {
-        activeDomainStartTime = Date.now();
-        saveState();
-      }
+  }
+  if (changes.extension_connected) {
+    const newConnected = !!changes.extension_connected.newValue;
+    if (!newConnected) accumulateTime();
+    extension_connected = newConnected;
+  }
+  if (changes.active_session_id) {
+    const raw = changes.active_session_id.newValue;
+    const clean = sanitizeSessionId(raw) || "";
+    if (!clean) accumulateTime();
+    active_session_id = clean;
+    if (clean) {
+      activeDomainStartTime = Date.now();
+      saveState();
     }
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  TIME ACCUMULATION
+// ─────────────────────────────────────────────────────────────────────────────
 function accumulateTime() {
-  // 6. Background.js must check before every timer update: if (!user_id || !trackingEnabled) return;
-  // Plus we require extension to be connected and have an active session!
+  // Only accumulate when the extension is fully armed for tracking
   if (!user_id || !trackingEnabled || !extension_connected || !active_session_id) {
     activeDomainStartTime = Date.now();
     saveState();
@@ -174,28 +215,28 @@ function accumulateTime() {
 
   const now = Date.now();
   const elapsedSeconds = Math.round((now - activeDomainStartTime) / 1000);
-  
-  if (elapsedSeconds > 0 && activeDomain && activeDomain !== "newtab" && activeDomain !== "") {
+
+  if (elapsedSeconds > 0 && activeDomain && activeDomain !== "newtab") {
     totalTimeByDomain[activeDomain] = (totalTimeByDomain[activeDomain] || 0) + elapsedSeconds;
     unsyncedTimeSeconds += elapsedSeconds;
   }
-  
+
   activeDomainStartTime = now;
   saveState();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  TAB TRANSITION HANDLING
+// ─────────────────────────────────────────────────────────────────────────────
 function handleTabTransition(url, title = "") {
   accumulateTime();
-  
+
   const newDomain = getDomainFromUrl(url);
   const info = categorizeDomain(url);
 
   if (newDomain !== activeDomain) {
-    // Only count tab switches when tracking is fully active
-    const canTrack = !!user_id && !!trackingEnabled && !!extension_connected && !!active_session_id;
-    if (canTrack) {
-      tabSwitches += 1;
-    }
+    const canTrack = !!user_id && trackingEnabled && extension_connected && !!active_session_id;
+    if (canTrack) tabSwitches += 1;
     activeDomain = newDomain;
     activeTitle = title;
     category = info.category;
@@ -204,11 +245,13 @@ function handleTabTransition(url, title = "") {
   } else if (title) {
     activeTitle = title;
   }
-  
+
   saveState();
 }
 
-// 1. Tab activated listener
+// ─────────────────────────────────────────────────────────────────────────────
+//  TAB / WINDOW LISTENERS
+// ─────────────────────────────────────────────────────────────────────────────
 chrome.tabs.onActivated.addListener((activeInfo) => {
   chrome.tabs.get(activeInfo.tabId, (tab) => {
     if (chrome.runtime.lastError || !tab) return;
@@ -216,11 +259,10 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
   });
 });
 
-// 2. Tab updated listener
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.url || changeInfo.title) {
     chrome.tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
-      const activeTab = activeTabs[0];
+      const activeTab = activeTabs && activeTabs[0];
       if (activeTab && activeTab.id === tabId) {
         handleTabTransition(activeTab.url || activeTab.pendingUrl, activeTab.title);
       }
@@ -228,95 +270,157 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// 3. Window focus listener
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
     accumulateTime();
   } else {
-    chrome.tabs.query({ active: true, windowId: windowId }, (activeTabs) => {
-      const activeTab = activeTabs[0];
-      if (activeTab) {
-        handleTabTransition(activeTab.url || activeTab.pendingUrl, activeTab.title);
-      }
+    chrome.tabs.query({ active: true, windowId }, (activeTabs) => {
+      const activeTab = activeTabs && activeTabs[0];
+      if (activeTab) handleTabTransition(activeTab.url || activeTab.pendingUrl, activeTab.title);
     });
   }
 });
 
-// Sync handler (5 seconds)
+// ─────────────────────────────────────────────────────────────────────────────
+//  FETCH WITH ONE RETRY HELPER
+//  Tries the request once. On network failure waits 1 s then retries once.
+//  HTTP errors (4xx / 5xx) are NOT retried – they are returned immediately so
+//  callers can read the response body for debugging.
+// ─────────────────────────────────────────────────────────────────────────────
+async function fetchWithRetry(url, options) {
+  try {
+    return await fetch(url, options);
+  } catch (networkErr) {
+    // Network-level failure (no connectivity, DNS, CORS preflight). Wait 1 s then retry once.
+    console.warn("Cognivue: fetch failed (will retry in 1 s):", networkErr.message);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      return await fetch(url, options);
+    } catch (retryErr) {
+      // Both attempts failed – rethrow so caller handles gracefully
+      throw retryErr;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  TELEMETRY SYNC  (runs every 5 s via alarm)
+// ─────────────────────────────────────────────────────────────────────────────
 function syncTelemetry() {
-  // Disconnected: no heartbeat, no telemetry.
-  if (!user_id || !extension_connected) {
+  // Nothing to do without a linked user
+  if (!user_id || !extension_connected) return;
+
+  // Prevent duplicate concurrent syncs
+  if (isSyncing) return;
+
+  // Validate user_id is a proper UUID before sending anything
+  if (!isValidUUID(user_id)) {
+    console.warn("Cognivue: user_id is not a valid UUID, skipping sync.", user_id);
     return;
   }
-  
-  const canTrack = trackingEnabled && !!active_session_id;
+
+  const cleanSession = sanitizeSessionId(active_session_id);
+  const canTrack = trackingEnabled && !!cleanSession;
 
   if (canTrack) {
-    // Normal Telemetry Sync
-    accumulateTime(); // Ensure latest time is tracked
-    
-    // Re-check conditions in case accumulateTime changed them
-    if (!user_id || !trackingEnabled || !extension_connected || !active_session_id) {
-      return;
-    }
+    // ── Full telemetry sync ──────────────────────────────────────────────────
+    accumulateTime();
 
+    // Re-check after accumulation (state may have changed)
+    if (!user_id || !trackingEnabled || !extension_connected) return;
+    const sessionAfterAccumulate = sanitizeSessionId(active_session_id);
+    if (!sessionAfterAccumulate) return;
+
+    // Skip if nothing new to send
     if (unsyncedTimeSeconds === 0) {
       syncStatus = "Synced";
       saveState();
       return;
     }
 
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const title = tabs && tabs[0] ? tabs[0].title : "";
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      const title = (tabs && tabs[0] && tabs[0].title) ? tabs[0].title : "";
 
+      // Build a fully-validated payload
       const payload = {
-        user_id: user_id,
-        session_id: active_session_id,
+        user_id: user_id.trim(),
+        session_id: sessionAfterAccumulate,
         domain: activeDomain || "unknown",
-        title: title,
-        detected_mode: focusMode,
-        activity_category: category,
-        time_spent: unsyncedTimeSeconds,
-        tab_switches: tabSwitches,
+        title: title || "",
+        detected_mode: focusMode || "General",
+        activity_category: category || "General Browsing",
+        time_spent: safeNumber(unsyncedTimeSeconds),
+        tab_switches: safeNumber(tabSwitches),
         heartbeat: false,
         timestamp: new Date().toISOString()
       };
 
-      fetch(`${API_BASE_URL}/extension/activity`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      })
-      .then(async (response) => {
-        if (!response.ok) {
-          const text = await response.text().catch(() => "");
-          console.error(`Telemetry sync POST failed: ${response.status} - ${text}`);
-          throw new Error(`HTTP error ${response.status}: ${text}`);
-        }
-        unsyncedTimeSeconds = 0;
+      // Guard: skip if time_spent is somehow still 0
+      if (payload.time_spent === 0) {
         syncStatus = "Synced";
         saveState();
-      })
-      .catch((err) => {
-        console.error("Cognivue Telemetry sync failed:", err);
+        return;
+      }
+
+      console.log("Cognivue: sending telemetry payload:", JSON.stringify(payload));
+      isSyncing = true;
+
+      try {
+        const response = await fetchWithRetry(`${API_BASE_URL}/extension/activity`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(
+            "Cognivue: telemetry sync failed",
+            response.status,
+            errorText,
+            JSON.stringify(payload)
+          );
+          // Do NOT mark extension disconnected on HTTP errors
+          syncStatus = "Cloud sync paused";
+          saveState();
+          isSyncing = false;
+          return;
+        }
+
+        // Success: clear the unsynced buffer
+        unsyncedTimeSeconds = 0;
+        tabSwitches = 0;
+        syncStatus = "Synced";
+        saveState();
+        isSyncing = false;
+        console.log("Cognivue: telemetry synced successfully.");
+      } catch (err) {
+        // Network failure even after retry
+        console.error("Cognivue: telemetry fetch failed after retry:", err.message);
         syncStatus = "Cloud sync paused";
         saveState();
-      });
+        isSyncing = false;
+      }
     });
+
   } else {
-    // Lightweight Heartbeat Sync
+    // ── Lightweight heartbeat (no active session or tracking paused) ─────────
+    // Skip heartbeat if a full telemetry sync is already in progress
+    if (isSyncing) return;
+
     const currentDomain = activeDomain || "connected";
     const now = Date.now();
 
-    // Prevent heartbeat spam: If activeDomain has not changed and last heartbeat < 5s ago, skip duplicate POST.
+    // Deduplicate: skip if same domain and last heartbeat was <5 s ago
     if (currentDomain === lastHeartbeatDomain && (now - lastHeartbeatTime) < 5000) {
       return;
     }
 
+    // Build heartbeat payload
     const payload = {
-      user_id: user_id,
+      user_id: user_id.trim(),
       session_id: null,
-      domain: activeDomain || "connected",
+      domain: currentDomain,
       title: "Extension heartbeat",
       detected_mode: "General",
       activity_category: "Extension Heartbeat",
@@ -326,95 +430,119 @@ function syncTelemetry() {
       timestamp: new Date().toISOString()
     };
 
-    fetch(`${API_BASE_URL}/extension/activity`, {
+    console.log("Cognivue: sending heartbeat payload:", JSON.stringify(payload));
+
+    fetchWithRetry(`${API_BASE_URL}/extension/activity`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     })
     .then(async (response) => {
+      // 200 = buffered (Supabase temporarily slow) — still counts as connected
+      // 201 = inserted immediately
       if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        console.error(`Telemetry heartbeat POST failed: ${response.status} - ${text}`);
-        throw new Error(`HTTP error ${response.status}: ${text}`);
+        const errorText = await response.text();
+        console.error(
+          "Cognivue: heartbeat sync failed",
+          response.status,
+          errorText,
+          JSON.stringify(payload)
+        );
+        // Do NOT disconnect – heartbeat failure is a transient cloud issue
+        syncStatus = "Cloud sync paused";
+        saveState();
+        return;
       }
       lastHeartbeatTime = Date.now();
       lastHeartbeatDomain = currentDomain;
       syncStatus = "Synced";
       saveState();
+      console.log("Cognivue: heartbeat synced successfully.");
     })
     .catch((err) => {
-      console.error("Cognivue Telemetry heartbeat failed:", err);
+      // Network failure after retry
+      console.error("Cognivue: heartbeat fetch failed after retry:", err.message);
       syncStatus = "Cloud sync paused";
       saveState();
     });
   }
 }
 
-// Active session & metrics polling (5 seconds)
+// ─────────────────────────────────────────────────────────────────────────────
+//  ACTIVE SESSION POLLING  (runs every 10 s via alarm)
+// ─────────────────────────────────────────────────────────────────────────────
 function pollActiveSession() {
   if (!user_id) return;
 
-  // 1. Poll for active session
   fetch(`${API_BASE_URL}/sessions/active/${user_id}`)
-    .then(res => {
-      if (!res.ok) throw new Error("No active session");
+    .then((res) => {
+      if (res.status === 404) {
+        // No active session – clear it silently, extension remains connected
+        chrome.storage.local.remove(["active_session_id", "latestMetrics"]);
+        return null;
+      }
+      if (!res.ok) throw new Error(`sessions/active returned ${res.status}`);
       return res.json();
     })
-    .then(session => {
+    .then((session) => {
+      if (!session) return;
+
       const sessionId = session?.id || session?.session_id || session?.active_session_id;
-      if (sessionId) {
-        chrome.storage.local.set({ active_session_id: sessionId });
-        return sessionId;
+      if (!isValidUUID(sessionId)) {
+        chrome.storage.local.remove(["active_session_id"]);
+        return;
       }
-      throw new Error("No valid session ID in response");
+
+      chrome.storage.local.set({ active_session_id: sessionId });
     })
-    .then(sessionId => {
-      // 2. Fetch metrics
-      fetch(`${API_BASE_URL}/metrics/latest/${sessionId}`)
-        .then(res => {
-          if (!res.ok) {
-            if (res.status === 404) {
-              return fetch(`${API_BASE_URL}/metrics/session/${sessionId}`)
-                .then(fbRes => {
-                  if (!fbRes.ok) throw new Error("Fallback failed");
-                  return fbRes.json();
-                })
-                .then(arr => {
-                  if (Array.isArray(arr) && arr.length > 0) return arr[arr.length - 1];
-                  throw new Error("No metrics in fallback");
-                });
-            }
-            throw new Error("Metrics not available");
-          }
-          return res.json();
-        })
-        .then(metric => {
-          if (metric) {
-            chrome.storage.local.set({ latestMetrics: metric });
-          }
-        })
-        .catch(() => {
-          // metrics unavailable, retain last known values
-        });
-    })
-    .catch(err => {
-      chrome.storage.local.remove(["active_session_id", "latestMetrics"]);
+    .catch((err) => {
+      // Network failure polling session – do NOT disconnect
+      console.warn("Cognivue: pollActiveSession network error (session state preserved):", err.message);
     });
 }
 
-// Alarms setup
+// ─────────────────────────────────────────────────────────────────────────────
+//  METRICS POLLING  (runs every 5 s, but only when a session is active)
+// ─────────────────────────────────────────────────────────────────────────────
+function pollLatestMetrics() {
+  if (!active_session_id || !isValidUUID(active_session_id)) return;
+
+  fetch(`${API_BASE_URL}/metrics/latest/${active_session_id}`)
+    .then((res) => {
+      if (!res.ok) return null;
+      return res.json();
+    })
+    .then((metric) => {
+      if (metric) chrome.storage.local.set({ latestMetrics: metric });
+    })
+    .catch(() => {
+      // Metrics unavailable – retain last known values
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ALARMS
+//  telemetry-sync : every 5 s
+//  poll-session   : every 10 s (separate to avoid collisions)
+//  poll-metrics   : every 5 s (only fires when session is active)
+// ─────────────────────────────────────────────────────────────────────────────
 chrome.alarms.create("telemetry-sync", { periodInMinutes: 5 / 60 });
-chrome.alarms.create("poll-session", { periodInMinutes: 5 / 60 });
+chrome.alarms.create("poll-session",   { periodInMinutes: 10 / 60 });
+chrome.alarms.create("poll-metrics",   { periodInMinutes: 5 / 60 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "telemetry-sync") {
     syncTelemetry();
   } else if (alarm.name === "poll-session") {
     pollActiveSession();
+  } else if (alarm.name === "poll-metrics") {
+    pollLatestMetrics();
   }
 });
 
-// Listen for reset command from popup
+// ─────────────────────────────────────────────────────────────────────────────
+//  POPUP MESSAGE HANDLER
+// ─────────────────────────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "reset_extension_data") {
     totalTimeByDomain = {};
@@ -433,5 +561,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  BOOT
+// ─────────────────────────────────────────────────────────────────────────────
 initializeState();
-

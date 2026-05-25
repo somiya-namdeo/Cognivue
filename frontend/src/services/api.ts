@@ -1,5 +1,51 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  GLOBAL RETRY WRAPPER
+//  - Retries network failures and 5xx responses with exponential back-off.
+//  - Never retries 4xx client errors (business errors such as 404 / 400).
+//  - Callers that need to handle 404 cleanly (e.g. /sessions/active) catch the
+//    resulting Error and inspect the message themselves.
+// ─────────────────────────────────────────────────────────────────────────────
+const RETRY_DELAYS_MS = [500, 1000, 2000];
+
+async function fetchWithRetry(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      const response = await fetch(input, init);
+
+      // 4xx → return immediately; don't retry client errors
+      if (response.status >= 400 && response.status < 500) {
+        return response;
+      }
+
+      // 5xx → retry with back-off (except on final attempt)
+      if (response.status >= 500) {
+        if (attempt < RETRY_DELAYS_MS.length) {
+          await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+          continue;
+        }
+        return response; // Return final 5xx to caller after exhausting retries
+      }
+
+      // 2xx / 3xx → success
+      return response;
+    } catch (networkErr) {
+      lastError = networkErr;
+      if (attempt < RETRY_DELAYS_MS.length) {
+        await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+      }
+    }
+  }
+
+  throw lastError ?? new Error('Network request failed after retries');
+}
+
 export interface SignupResponse {
   message: string;
   user_id: string;
@@ -163,7 +209,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 // 3. API endpoints
 export async function signupUser(fullName: string, email: string, password: string): Promise<SignupResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/auth/signup`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -178,7 +224,7 @@ export async function signupUser(fullName: string, email: string, password: stri
 }
 
 export async function loginUser(email: string, password: string): Promise<LoginResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -192,7 +238,7 @@ export async function loginUser(email: string, password: string): Promise<LoginR
 }
 
 export async function deleteUserAccount(userId: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/auth/account/${userId}`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/auth/account/${userId}`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
@@ -204,7 +250,7 @@ export async function deleteUserAccount(userId: string): Promise<void> {
 // --- FOCUS SESSION APIS ---
 
 export async function startSession(userId: string, title?: string, sessionType?: string): Promise<SessionResponse> {
-  const response = await fetch(`${API_BASE_URL}/sessions/start`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/sessions/start`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -219,7 +265,7 @@ export async function startSession(userId: string, title?: string, sessionType?:
 }
 
 export async function endSession(sessionData: SessionEndRequest): Promise<SessionResponse> {
-  const response = await fetch(`${API_BASE_URL}/sessions/end`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/sessions/end`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -230,11 +276,11 @@ export async function endSession(sessionData: SessionEndRequest): Promise<Sessio
 }
 
 export async function updateSession(sessionId: string, title?: string, sessionType?: string): Promise<SessionResponse> {
-  const payload: any = {};
+  const payload: Record<string, string> = {};
   if (title) payload.title = title;
   if (sessionType) payload.session_type = sessionType;
 
-  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/sessions/${sessionId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -243,25 +289,32 @@ export async function updateSession(sessionId: string, title?: string, sessionTy
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/sessions/${sessionId}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' }
   });
   return handleResponse<void>(response);
 }
 
-export async function getActiveSession(userId: string): Promise<SessionResponse> {
-  const response = await fetch(`${API_BASE_URL}/sessions/active/${userId}`, {
+/**
+ * Fetches the active focus session for a user.
+ * Returns null instead of throwing when no session exists (HTTP 404).
+ * Throws for all other errors (network, 5xx) so callers can handle them.
+ */
+export async function getActiveSession(userId: string): Promise<SessionResponse | null> {
+  const response = await fetchWithRetry(`${API_BASE_URL}/sessions/active/${userId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
     },
   });
+  // 404 means "no active session" – not an error condition
+  if (response.status === 404) return null;
   return handleResponse<SessionResponse>(response);
 }
 
 export async function getSessionHistory(userId: string): Promise<SessionResponse[]> {
-  const response = await fetch(`${API_BASE_URL}/sessions/history/${userId}`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/sessions/history/${userId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -273,7 +326,7 @@ export async function getSessionHistory(userId: string): Promise<SessionResponse
 // --- COGNITIVE METRICS APIS ---
 
 export async function addMetric(metricData: MetricCreateRequest): Promise<MetricResponse> {
-  const response = await fetch(`${API_BASE_URL}/metrics/add`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/metrics/add`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -284,7 +337,7 @@ export async function addMetric(metricData: MetricCreateRequest): Promise<Metric
 }
 
 export async function getSessionMetrics(sessionId: string): Promise<MetricResponse[]> {
-  const response = await fetch(`${API_BASE_URL}/metrics/session/${sessionId}`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/metrics/session/${sessionId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -293,14 +346,15 @@ export async function getSessionMetrics(sessionId: string): Promise<MetricRespon
   return handleResponse<MetricResponse[]>(response);
 }
 
-export async function getLatestMetric(sessionId: string): Promise<MetricResponse> {
-  const response = await fetch(`${API_BASE_URL}/metrics/latest/${sessionId}`, {
+export async function getLatestMetric(sessionId: string): Promise<MetricResponse | null> {
+  const response = await fetchWithRetry(`${API_BASE_URL}/metrics/latest/${sessionId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
     },
   });
-  return handleResponse<MetricResponse>(response);
+  if (response.status === 404) return null;
+  return handleResponse<MetricResponse | null>(response);
 }
 
 // --- EXTENSION APIS ---
@@ -320,7 +374,7 @@ export interface ExtensionActivityResponse {
 }
 
 export async function getExtensionActivity(userId: string): Promise<ExtensionActivityResponse[]> {
-  const response = await fetch(`${API_BASE_URL}/extension/activity/${userId}`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/extension/activity/${userId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -358,7 +412,7 @@ export interface DashboardAnalytics {
 }
 
 export async function getDashboardAnalytics(userId: string): Promise<DashboardAnalytics> {
-  const response = await fetch(`${API_BASE_URL}/analytics/dashboard/${userId}`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/analytics/dashboard/${userId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -392,7 +446,7 @@ export interface AIInsightCard {
   severity: string; // positive | neutral | warning | critical
   confidence: string;
   recommendation: string;
-  supporting_metrics: Record<string, any>;
+  supporting_metrics: Record<string, unknown>;
 }
 
 export interface FocusDriftPoint {
@@ -437,7 +491,7 @@ export interface AdvancedAIInsightsResponse {
 }
 
 export async function getAIInsights(userId: string): Promise<AdvancedAIInsightsResponse> {
-  const response = await fetch(`${API_BASE_URL}/insights/generate/${userId}`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/insights/generate/${userId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -449,14 +503,12 @@ export async function getAIInsights(userId: string): Promise<AdvancedAIInsightsR
 // Initialize user profile after login/signup
 export async function initUser(userId: string): Promise<void> {
   try {
-    await fetch(`${API_BASE_URL}/users/init/${userId}`, {
+    await fetchWithRetry(`${API_BASE_URL}/users/init/${userId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
-    // Silently ignore response; no blocking
+    // Silently ignore response; non-blocking init
   } catch {
     // intentionally ignored — non-blocking init
   }
 }
-
-

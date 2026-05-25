@@ -98,7 +98,6 @@ export const LiveMonitoringPage: React.FC = () => {
   const [latestMetric, setLatestMetric] = useState<MetricResponse | null>(null);
   const [focusStream, setFocusStream] = useState<{ time: string; focus: number; load: number; fatigue: number }[]>([]);
   const [hasBackendOfflineWarning, setHasBackendOfflineWarning] = useState<boolean>(false);
-  const [streamStatus, setStreamStatus] = useState<'Connected' | 'Waiting' | 'Offline'>('Waiting');
 
   // Stats histories for Session End Summary Modal
   const [sessionMetrics, setSessionMetrics] = useState<any[]>([]);
@@ -138,10 +137,7 @@ export const LiveMonitoringPage: React.FC = () => {
 
       setIsLoading(true);
       try {
-        // Query backend for active session
-        const activeSess = await getActiveSession(session.userId);
-
-        // Fetch initial extension activity
+        // Fetch initial extension activity first so extension status displays immediately
         try {
           const extData = await getExtensionActivity(session.userId);
           if (extData && extData.length > 0) {
@@ -149,6 +145,19 @@ export const LiveMonitoringPage: React.FC = () => {
           }
         } catch {
           // widget degrades gracefully
+        }
+
+        // Query backend for active session
+        let activeSess = null;
+        try {
+          activeSess = await getActiveSession(session.userId);
+        } catch (err: any) {
+          if (err.message && err.message.includes('No active session found')) {
+            localStorage.removeItem('active_session_id');
+          } else {
+            // Re-throw other network/offline errors to be caught by the outer catch
+            throw err;
+          }
         }
         
         if (activeSess && activeSess.id) {
@@ -194,19 +203,13 @@ export const LiveMonitoringPage: React.FC = () => {
               setFocusStream(historyData);
             } else {
               setFocusStream([]);
-              setStreamStatus('Waiting');
             }
           } catch {
             setFocusStream([]);
-            setStreamStatus('Waiting');
           }
         }
       } catch (err: any) {
-        if (err.message && err.message.includes('No active session found')) {
-          localStorage.removeItem('active_session_id');
-        } else {
-          setErrorMessage('FastAPI backend service is offline. Please start your backend server.');
-        }
+        setErrorMessage('FastAPI backend service is offline. Please start your backend server.');
       } finally {
         setIsLoading(false);
       }
@@ -260,6 +263,70 @@ export const LiveMonitoringPage: React.FC = () => {
     };
   }, [isSessionActive, sessionStartTime]);
 
+  // Overlap guard for extension activity polling
+  const isFetchingExtRef = useRef(false);
+
+  // Poll extension activity to determine extension connection state independently of active session
+  useEffect(() => {
+    const session = getLocalSession();
+    const userId = session.userId;
+    if (!userId) return;
+
+    const fetchExt = async () => {
+      if (isFetchingExtRef.current) return;
+      isFetchingExtRef.current = true;
+      try {
+        const data = await getExtensionActivity(userId);
+        if (data && data.length > 0) {
+          setExtensionActivity(data[0]);
+        } else {
+          setExtensionActivity(null);
+        }
+      } catch {
+        // Transient error – keep previous extensionActivity state (sticky)
+      } finally {
+        isFetchingExtRef.current = false;
+      }
+    };
+
+    fetchExt();
+    const interval = setInterval(fetchExt, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getExtConnectionState = (): 'CONNECTED' | 'PAUSED' | 'RECONNECTING' | 'NOT CONNECTED' => {
+    if (!extensionActivity) {
+      // Check localStorage sticky cache before declaring NOT CONNECTED
+      try {
+        const cached = localStorage.getItem('cognivue_last_success_ext_heartbeat');
+        if (cached) {
+          const ms = new Date(cached).getTime();
+          const diffMins = (Date.now() - ms) / 60000;
+          if (diffMins < 5) return 'CONNECTED';
+          if (diffMins < 15) return 'PAUSED';
+        }
+      } catch { /* ignore */ }
+      return 'NOT CONNECTED';
+    }
+    const getTimestamp = (activity: any): number => {
+      const rawVal = activity?.recorded_at || activity?.created_at || activity?.timestamp;
+      if (!rawVal) return 0;
+      return new Date(rawVal).getTime();
+    };
+    const lastSync = getTimestamp(extensionActivity);
+    if (!lastSync || isNaN(lastSync)) return 'NOT CONNECTED';
+    
+    const diffMins = (Date.now() - lastSync) / 60000;
+    if (diffMins < 5) return 'CONNECTED';
+    if (diffMins < 15) return 'PAUSED';
+    return 'NOT CONNECTED';
+  };
+
+  const extConnection = getExtConnectionState();
+
+  // Overlap guard for metrics polling
+  const isFetchingMetricsRef = useRef(false);
+
   // ==========================================
   // 3. SIMULATED LIVE TELEMETRY STREAM ENGINE
   // ==========================================
@@ -267,14 +334,16 @@ export const LiveMonitoringPage: React.FC = () => {
     if (!isSessionActive || !activeSessionId) return;
 
     const fetchAndUpdateMetric = async () => {
+      if (isFetchingMetricsRef.current) return;
+      isFetchingMetricsRef.current = true;
       try {
         const metrics = await getSessionMetrics(activeSessionId);
+        console.log('Latest metrics:', metrics);
+
         if (metrics && metrics.length > 0) {
-          const metric = metrics[metrics.length - 1]; // latest metric
-          // Successful fetch → update UI
+          const metric = metrics[metrics.length - 1];
           setLatestMetric(metric);
           setSessionMetrics(metrics);
-          setStreamStatus('Connected');
           setErrorMessage(null);
           setHasBackendOfflineWarning(false);
 
@@ -288,7 +357,6 @@ export const LiveMonitoringPage: React.FC = () => {
             pushNotification('Posture Drift Detected', 'You appear to be slouching. Sit upright to maintain alignment and reduce fatigue.', 'warning', '/live-monitoring');
           }
 
-          // Update chart stream
           const historyData = metrics.map((m) => {
             const d = new Date(m.recorded_at);
             const timeStr = [d.getHours(), d.getMinutes(), d.getSeconds()].map(v => String(v).padStart(2, '0')).join(':');
@@ -301,28 +369,23 @@ export const LiveMonitoringPage: React.FC = () => {
           });
           setFocusStream(historyData);
         } else {
-          setStreamStatus('Waiting');
-          setErrorMessage(null); // Clear error if just waiting for data
+          setErrorMessage(null);
         }
       } catch (err: any) {
-        // If 404, treat as waiting; otherwise offline
-        const isNotFound = err?.message?.includes('404') || err?.message?.toLowerCase()?.includes('not found');
-        if (!latestMetricRef.current || isNotFound) {
-          setStreamStatus('Waiting');
-          setErrorMessage(null); // Clear error if just waiting for data
-        } else {
-          setStreamStatus('Offline');
-          if (!hasBackendOfflineWarning) {
-            setHasBackendOfflineWarning(true);
-            setErrorMessage('Unable to fetch CV metrics: backend offline or no data yet.');
-          }
+        console.warn('LiveMonitoring metrics fetch warning:', err);
+        if (!latestMetricRef.current) {
+          setErrorMessage(null);
+        } else if (!hasBackendOfflineWarning) {
+          setHasBackendOfflineWarning(true);
+          setErrorMessage('Unable to fetch CV metrics: backend offline or no data yet.');
         }
+      } finally {
+        isFetchingMetricsRef.current = false;
       }
     };
 
-    // Initial fetch
     fetchAndUpdateMetric();
-    // Poll every 5 seconds
+    // Poll every 5 seconds only while session is active
     const interval = setInterval(fetchAndUpdateMetric, 5000);
     return () => clearInterval(interval);
   }, [isSessionActive, activeSessionId, hasBackendOfflineWarning]);
@@ -354,7 +417,6 @@ export const LiveMonitoringPage: React.FC = () => {
       setSessionMetrics([]);
       setIsSessionActive(true);
       setHasBackendOfflineWarning(false);
-      setStreamStatus('Waiting');
       
       // Reset area chart baseline with no fake data
       setFocusStream([]);
@@ -548,7 +610,7 @@ export const LiveMonitoringPage: React.FC = () => {
     },
     {
       title: 'Gaze status',
-      value: isSessionActive && latestMetric ? latestMetric.gaze_status : (isSessionActive ? 'Waiting...' : 'Offline'),
+      value: isSessionActive && latestMetric ? latestMetric.gaze_status : (isSessionActive ? 'Waiting for face detection' : 'Offline'),
       status: isSessionActive && latestMetric ? 'Active tracking' : '--',
       statusColor: 'text-teal-400/65',
       icon: Activity,
@@ -557,7 +619,7 @@ export const LiveMonitoringPage: React.FC = () => {
     },
     {
       title: 'Attention state',
-      value: isSessionActive && latestMetric ? (latestMetric.gaze_status === 'Off Screen' ? 'Away' : latestMetric.attention_state) : (isSessionActive ? 'Waiting...' : 'Idle'),
+      value: isSessionActive && latestMetric ? (latestMetric.gaze_status === 'Off Screen' ? 'Away' : latestMetric.attention_state) : (isSessionActive ? 'Waiting for face detection' : (extConnection === 'CONNECTED' || extConnection === 'PAUSED' ? 'Waiting for active session' : 'Idle')),
       status: isSessionActive && latestMetric ? `Sustained ${formatTime(elapsedSeconds)}` : '--',
       statusColor: 'text-violet-400/65',
       icon: Sparkles,
@@ -566,7 +628,7 @@ export const LiveMonitoringPage: React.FC = () => {
     },
     {
       title: 'Posture',
-      value: isSessionActive && latestMetric ? latestMetric.posture_status : (isSessionActive ? 'Waiting...' : 'Unknown'),
+      value: isSessionActive && latestMetric ? latestMetric.posture_status : (isSessionActive ? 'Initializing inference...' : 'Unknown'),
       status: isSessionActive && latestMetric ? (latestMetric.posture_status === 'Slouched' ? 'Recalibrate posture' : 'Optimal alignment') : '--',
       statusColor: isSessionActive && latestMetric?.posture_status === 'Slouched' ? 'text-amber-400' : 'text-zinc-500',
       icon: Zap,
@@ -575,7 +637,7 @@ export const LiveMonitoringPage: React.FC = () => {
     },
     {
       title: 'Active tab',
-      value: isSessionActive && latestMetric ? latestMetric.active_tab : (isSessionActive ? 'Waiting...' : 'None'),
+      value: isSessionActive && latestMetric ? latestMetric.active_tab : (isSessionActive ? 'Initializing inference...' : 'None'),
       status: isSessionActive && latestMetric ? 'Productive category' : '--',
       statusColor: 'text-zinc-500',
       icon: Globe,
@@ -690,13 +752,53 @@ export const LiveMonitoringPage: React.FC = () => {
               )}
 
               {isSessionActive && (
-                <span className="hidden md:inline-flex text-[8px] font-bold text-cyan-400/80 tracking-wider bg-cyan-500/5 border border-cyan-500/10 px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.05)]">
-                  Cognitive inference active
-                </span>
+                latestMetric ? (
+                  <span className="hidden md:inline-flex text-[8px] font-bold text-cyan-400/80 tracking-wider bg-cyan-500/5 border border-cyan-500/10 px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.05)]">
+                    Cognitive inference active
+                  </span>
+                ) : (
+                  <span className="hidden md:inline-flex text-[8px] font-bold text-amber-400/80 tracking-wider bg-amber-500/5 border border-amber-500/10 px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.05)]">
+                    Initializing inference...
+                  </span>
+                )
               )}
               
-              {/* CV Stream status badge */}
-              <span className="ml-2 text-xs font-medium text-cyan-400/80 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">CV Stream: {streamStatus}</span>
+              {/* Extension & Session Separated Status Badges (Requirement 1, 4 & 6) */}
+              {extConnection === 'CONNECTED' ? (
+                <span className="ml-2 text-[10px] uppercase font-bold tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded shrink-0">
+                  Extension: Connected
+                </span>
+              ) : extConnection === 'PAUSED' ? (
+                <span className="ml-2 text-[10px] uppercase font-bold tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded shrink-0">
+                  Extension: Paused
+                </span>
+              ) : (
+                <span className="ml-2 text-[10px] uppercase font-bold tracking-widest text-rose-500 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded shrink-0">
+                  Extension: Not Connected
+                </span>
+              )}
+
+              {isSessionActive ? (
+                latestMetric ? (
+                  <span className="ml-2 text-[10px] uppercase font-bold tracking-widest text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded shrink-0">
+                    Session: Active
+                  </span>
+                ) : (
+                  <span className="ml-2 text-[10px] uppercase font-bold tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded shrink-0 animate-pulse">
+                    Session: Initializing...
+                  </span>
+                )
+              ) : (
+                extConnection === 'CONNECTED' || extConnection === 'PAUSED' ? (
+                  <span className="ml-2 text-[10px] uppercase font-bold tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded shrink-0">
+                    Session: Waiting for active session
+                  </span>
+                ) : (
+                  <span className="ml-2 text-[10px] uppercase font-bold tracking-widest text-zinc-500 bg-white/5 border border-white/10 px-2 py-0.5 rounded shrink-0">
+                    Session: No Active Session
+                  </span>
+                )
+              )}
             </div>
 
             <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3.5 py-1.5 text-right flex flex-col gap-0.5 select-none font-mono">
@@ -720,7 +822,6 @@ export const LiveMonitoringPage: React.FC = () => {
                 setIsSessionActive(false);
                 setLatestMetric(null);
                 setFocusStream([]);
-                setStreamStatus('Waiting');
               }}
               className="ml-2 rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-300 hover:bg-amber-500/20"
             >

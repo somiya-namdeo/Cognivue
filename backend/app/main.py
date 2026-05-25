@@ -50,6 +50,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Register custom exception handler for detailed RequestValidationError logging
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+import logging
+
+logger = logging.getLogger("uvicorn.error")
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    errors = exc.errors()
+    logger.error(f"FastAPI Validation Error on {request.method} {request.url.path}: {errors}")
+    return JSONResponse(
+        status_code=400,
+        content={
+            "detail": "Request sync validation failed.",
+            "errors": errors
+        }
+    )
+
 # Register routers
 app.include_router(auth_router)
 app.include_router(user_router)

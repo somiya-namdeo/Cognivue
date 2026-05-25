@@ -593,23 +593,54 @@ class InsightsService:
 
                 # Log payload summary for verification
 
-                # Try upsert on user_id (requires migrate to add unique index)
-                # Falls back to plain insert if user_id column doesn't exist yet
+                # Persist AI insights with constraint-safe upsert.
+                # If the database has a UNIQUE constraint on user_id the upsert
+                # works cleanly.  If the constraint is missing we fall back to a
+                # delete-then-insert so we never accumulate duplicate rows.
                 try:
                     res = supabase.table("ai_insights").upsert(
                         insight_record,
-                        on_conflict="user_id"
+                        on_conflict="user_id",
                     ).execute()
-                except Exception:
-                    # Fallback: insert without upsert (pre-migration)
-                    res = supabase.table("ai_insights").insert(insight_record).execute()
-
-                if res.data:
-                    saved_id = res.data[0].get("id", "unknown")
-                    saved_summary = str(res.data[0].get("summary", ""))[:60]
-                    logger.info(f"AI insights saved successfully for user_id: {user_id}")
-                else:
-                    logger.warning(f"AI insights insert returned no data: {res}")
+                    if res.data:
+                        logger.info(
+                            f"AI insights upserted successfully for user_id: {user_id}"
+                        )
+                    else:
+                        logger.warning(
+                            f"AI insights upsert returned no data for user_id: {user_id}"
+                        )
+                except Exception as upsert_err:
+                    upsert_msg = str(upsert_err).lower()
+                    if "no unique" in upsert_msg or "exclusion constraint" in upsert_msg or "on conflict" in upsert_msg:
+                        # UNIQUE constraint on user_id does not exist in this DB
+                        # migration yet — fall back to delete + insert.
+                        logger.warning(
+                            f"AI insights: upsert not supported (no unique constraint) — "
+                            f"using delete+insert fallback for user_id={user_id}"
+                        )
+                        try:
+                            supabase.table("ai_insights") \
+                                .delete() \
+                                .eq("user_id", str(user_id)) \
+                                .execute()
+                            res = supabase.table("ai_insights").insert(insight_record).execute()
+                            if res.data:
+                                logger.info(
+                                    f"AI insights fallback insert success for user_id: {user_id}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"AI insights fallback insert empty response for user_id: {user_id}"
+                                )
+                        except Exception as fallback_err:
+                            logger.error(
+                                f"AI insights fallback insert failed for user_id={user_id}: {fallback_err}"
+                            )
+                    else:
+                        logger.error(
+                            f"AI insights upsert unexpected error for user_id={user_id}: {upsert_err}"
+                        )
 
             except Exception as db_err:
                 logger.error(f"Insertion error details for ai_insights: {str(db_err)}")

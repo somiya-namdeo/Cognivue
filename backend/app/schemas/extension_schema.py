@@ -18,6 +18,7 @@ class ActivitySyncRequest(BaseModel):
 class ActivitySyncResponse(BaseModel):
     id: UUID
     user_id: UUID
+    session_id: Optional[str] = None
     domain: str
     category: str
     mode: str

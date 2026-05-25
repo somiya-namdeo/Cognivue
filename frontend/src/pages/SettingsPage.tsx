@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Mail, 
@@ -17,7 +17,8 @@ import { getExtensionActivity, clearActiveSession, deleteUserAccount } from '../
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '../hooks/useProfile';
 import { pushNotification } from '../services/notifications';
-import { determineExtensionStatus } from '../utils/extensionStatus';
+import { determineExtensionStatus, getReconnectingStatus, recordSuccess, recordFailure, shouldDisconnect } from '../utils/extensionStatus';
+import type { ExtensionState } from '../utils/extensionStatus';
 
 export const SettingsPage: React.FC = () => {
   const profile = useProfile();
@@ -52,6 +53,11 @@ export const SettingsPage: React.FC = () => {
     setTimeout(() => setShowNotification(false), 3000);
   };
 
+  // Overlap guard: skip cycle if a request is already in flight
+  const isFetchingExtRef = useRef(false);
+  // Sticky state ref so the error branch can read current state without stale closure
+  const lastExtStateRef = useRef<ExtensionState>('disconnected');
+
   useEffect(() => {
     // Check Webcam
     if (navigator.permissions && navigator.permissions.query) {
@@ -62,18 +68,34 @@ export const SettingsPage: React.FC = () => {
     }
 
     const checkExt = async () => {
+      if (isFetchingExtRef.current) return;
+      isFetchingExtRef.current = true;
       try {
-        const userId = localStorage.getItem('user_id');
-        if (!userId) return setExtensionStatus({ state: 'Not connected', detail: 'No user ID' });
+        const uid = localStorage.getItem('user_id');
+        if (!uid) {
+          setExtensionStatus({ state: 'disconnected', detail: 'No user ID' });
+          return;
+        }
         
-        const data = await getExtensionActivity(userId);
+        const data = await getExtensionActivity(uid);
         const resolved = determineExtensionStatus(data || []);
+        lastExtStateRef.current = resolved.state;
+        recordSuccess();
         setExtensionStatus(resolved);
       } catch {
-        setExtensionStatus({ state: 'Not connected', detail: 'Could not fetch extension data.' });
+        // Transient failure – do not flip to disconnected immediately
+        recordFailure();
+        const fallback = shouldDisconnect()
+          ? { state: 'disconnected' as ExtensionState, detail: 'Extension not reachable.' }
+          : getReconnectingStatus(lastExtStateRef.current);
+        setExtensionStatus(fallback);
+      } finally {
+        isFetchingExtRef.current = false;
       }
     };
     checkExt();
+    const interval = setInterval(checkExt, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSaveProfile = () => {
