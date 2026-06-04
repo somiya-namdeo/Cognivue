@@ -24,9 +24,11 @@ origins = [
     "https://cognivue-kappa.vercel.app"
 ]
 
+# Ensure static origins do not contain trailing slashes
+origins = [origin.strip().rstrip("/") for origin in origins]
 
 try:
-    frontend_url = settings.FRONTEND_URL.strip()
+    frontend_url = settings.FRONTEND_URL.strip().rstrip("/")
 
     if frontend_url and frontend_url not in origins:
         origins.append(frontend_url)
