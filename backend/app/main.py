@@ -8,6 +8,7 @@ from app.routes.insights_routes import router as insights_router
 from app.routes.analytics_routes import router as analytics_router
 from app.routes.extension_routes import router as extension_router
 from app.routes.behavior_routes import router as behavior_router
+from app.routes.monitor_routes import router as monitor_router
 from app.config import settings
 
 app = FastAPI(
@@ -78,6 +79,7 @@ app.include_router(insights_router)
 app.include_router(analytics_router)
 app.include_router(extension_router)
 app.include_router(behavior_router)
+app.include_router(monitor_router)
 
 @app.get("/", tags=["Health Check"])
 async def health_check():
