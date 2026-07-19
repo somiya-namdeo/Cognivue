@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.png" width="180" alt="Cognivue Logo"/>
+  <img src="frontend/public/logo.png" width="180" alt="Cognivue Logo"/>
 </p>
 
 <h1 align="center">Cognivue</h1>
