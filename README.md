@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/public/logo.png" width="180" alt="Cognivue Logo"/>
+  <img src="frontend/public/logo.png" width="100" alt="Cognivue Logo"/>
 </p>
 
 <h1 align="center">Cognivue</h1>
@@ -25,7 +25,7 @@
 
 ## 1. Project Introduction
 
-![Cognivue Landing Page](docs/screenshots/landing-page.png)
+![Cognivue Landing Page](./docs/screenshots/landing-page.png)
 > **Landing Page:** Cognivue focuses on providing users with deep biometric analytics without sacrificing data privacy, ensuring all heavy computation runs strictly on the local client.
 
 Modern knowledge work demands intense, sustained focus. Yet, the tools we use to track our productivity are fundamentally flawed. 
@@ -39,7 +39,7 @@ Traditional productivity tools fall into two distinct paradigms, both with signi
 
 ## 3. Why Cognivue
 
-![Dashboard Overview](docs/screenshots/dashboard-overview.png)
+![Dashboard Overview](./docs/screenshots/dashboard-overview.png)
 > **Dashboard Overview:** A centralized hub providing real-time cognitive metrics aggregated from local computer vision models and extension telemetry.
 
 **Cognivue** was engineered to solve this dichotomy. It provides deep, biometric analytics—such as gaze tracking, blink-rate analysis, and posture drift—to measure genuine cognitive focus. Crucially, it accomplishes this entirely **on-device**. By utilizing WebAssembly (via MediaPipe) to sandbox computer vision models directly within the browser, raw video frames never leave the user's machine.
@@ -59,13 +59,13 @@ The architecture of Cognivue is a distributed system consisting of decoupled com
 
 ```mermaid
 graph TD
-  React[React SPA] -->|requestAnimationFrame| MP[MediaPipe WebAssembly]
-  Webcam[Local Webcam] --> MP
+  Webcam[Webcam] --> MP
+  React[React Frontend] -->|Media Stream| MP[MediaPipe FaceMesh]
   MP -->|Landmarks| React
-  React -->|POST /metrics| FastAPI[FastAPI Service]
-  Ext[Manifest V3 Extension] -->|chrome.storage.local| SW[Service Worker]
-  SW -->|POST /extension| FastAPI
-  FastAPI -->|Query| DB[(Supabase PostgreSQL)]
+  React -->|Telemetry| FastAPI[FastAPI Backend]
+  Ext[Chrome Extension] -->|Activity Data| SW[Background Service]
+  SW -->|Activity Data| FastAPI
+  FastAPI -->|Store Data| DB[(Supabase Database)]
 ```
 
 ### Component Breakdown
@@ -79,19 +79,19 @@ graph TD
 ```mermaid
 sequenceDiagram
     actor User
-    participant Cam as Local Webcam
-    participant MP as MediaPipe (Wasm)
-    participant UI as React UI
-    participant API as FastAPI
-    participant DB as Supabase
+    participant Cam as Webcam
+    participant MP as MediaPipe FaceMesh
+    participant UI as React Frontend
+    participant API as FastAPI Backend
+    participant DB as Supabase Database
 
-    User->>Cam: Grant Permission
-    Cam->>MP: 30 FPS Raw Stream
-    MP->>UI: 468 3D Facial Landmarks
-    UI->>UI: Compute EAR, Gaze, Posture
+    User->>Cam: Webcam Permission
+    Cam->>MP: Media Stream
+    MP->>UI: Landmarks
+    UI->>UI: Local Processing
     loop Every 5 Seconds
-        UI->>API: POST /metrics (Anonymized)
-        API->>DB: Insert Telemetry Row
+        UI->>API: Telemetry
+        API->>DB: Store Data
     end
 ```
 
@@ -99,7 +99,7 @@ sequenceDiagram
 
 ## 7. Privacy Architecture
 
-![Privacy Settings](docs/screenshots/settings-privacy.png)
+![Privacy Settings](./docs/screenshots/settings-privacy.png)
 > **Security & Privacy Settings:** Users maintain complete control over their data, reinforcing the zero-image telemetry guarantee.
 
 Cognivue guarantees privacy through an absolute isolation boundary between local memory and the network layer. 
@@ -109,7 +109,7 @@ Cognivue guarantees privacy through an absolute isolation boundary between local
 
 ## 8. AI Pipeline & Live Monitoring
 
-![Live Monitoring](docs/screenshots/live-monitoring.png)
+![Live Monitoring](./docs/screenshots/live-monitoring.png)
 > **Live Computer Vision Monitor:** Real-time feedback loop processing 468 facial landmarks. The UI overlays focus, posture, and blink-rate heuristics dynamically without sending video data to the cloud.
 
 The computer vision pipeline distills raw landmarks into actionable heuristics:
@@ -122,7 +122,7 @@ The computer vision pipeline distills raw landmarks into actionable heuristics:
 
 ## 9. Browser Extension
 
-![Browser Extension](docs/screenshots/browser-extension.png)
+![Browser Extension](./docs/screenshots/browser-extension.png)
 > **Manifest V3 Extension:** Lightweight background domain tracker that correlates web activity with cognitive state.
 
 The Manifest V3 extension avoids invasive DOM injection (Content Scripts are minimal/non-existent for tracking).
@@ -133,7 +133,7 @@ The Manifest V3 extension avoids invasive DOM injection (Content Scripts are min
 
 ## 10. Database & Session History
 
-![Session History](docs/screenshots/session-history.png)
+![Session History](./docs/screenshots/session-history.png)
 > **Session History Log:** Deep work blocks are queried from Supabase and aggregated, showing productivity trends over time.
 
 The backend exposes RESTful endpoints and utilizes Supabase (PostgreSQL) for persistence. The database strictly enforces tenant isolation.
@@ -171,23 +171,23 @@ The backend exposes RESTful endpoints and utilizes Supabase (PostgreSQL) for per
 
 ## 12. AI Insights Generation
 
-![AI Insights Overview](docs/screenshots/ai-insights-overview.png)
+![AI Insights Overview](./docs/screenshots/ai-insights-overview.png)
 > **AI Insights Overview:** Synthesizing telemetry and domain logs into high-level behavioral patterns.
 
-![AI Insights Graphs](docs/screenshots/ai-insights-graphs.png)
+![AI Insights Graphs](./docs/screenshots/ai-insights-graphs.png)
 > **Cognitive Analytics Graphs:** Transforming raw `telemetry_metrics` rows into dynamic visual representations of focus over time.
 
-![AI Insights Recommendations](docs/screenshots/ai-insights-recommendations.png)
+![AI Insights Recommendations](./docs/screenshots/ai-insights-recommendations.png)
 > **Actionable Recommendations:** Generating localized feedback to help prevent burnout and optimize deep work sessions.
 
 ---
 
 ## 13. Performance & Security
 
-![Login Page](docs/screenshots/login-page.png)
+![Login Page](./docs/screenshots/login-page.png)
 > **Authentication Flow:** Secure JWT-based entry point leveraging Supabase Auth.
 
-![Register Page](docs/screenshots/register-page.png)
+![Register Page](./docs/screenshots/register-page.png)
 > **Registration:** Creating a distinct tenant boundary for new users.
 
 - **JWT Verification:** FastAPI validates the cryptographic signature of the Supabase-issued JWT via custom middleware before accepting any telemetry payloads.
@@ -240,5 +240,7 @@ npm run dev
 ## 18. Author
 **Somiya Namdeo**
 Software Engineer passionate about local-first AI, privacy, and scalable web architectures.
-- [Email](mailto:namdeosomiya@gmail.com)
-- [LinkedIn](https://www.linkedin.com/in/somiya-namdeo-/)
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/somiya-namdeo-/)
+[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/somiya-namdeo)
+[![Email](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:namdeosomiya@gmail.com)
