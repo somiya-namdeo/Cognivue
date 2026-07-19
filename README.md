@@ -1,227 +1,262 @@
-# Cognivue
+<p align="center">
+  <img src="docs/logo.png" width="180" alt="Cognivue Logo"/>
+</p>
 
-A privacy-first, on-device cognitive intelligence platform analyzing focus, fatigue, and productivity patterns using local computer vision gaze tracking, biometrics, and active browser tab metrics.
+<h1 align="center">Cognivue</h1>
 
-### Live Deployments
-- Frontend Dashboard: [cognivue-kappa.vercel.app](https://cognivue-kappa.vercel.app)
-- Backend API Console: [cognivue-rmlz.onrender.com](https://cognivue-rmlz.onrender.com)
+<p align="center">
+  <strong>A Privacy-First, On-Device Cognitive Intelligence & Productivity Analytics Platform</strong>
+</p>
 
----
+<p align="center">
+  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/MediaPipe-000000?style=for-the-badge&logo=google" alt="MediaPipe" />
+  <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/Chrome_Extension-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Chrome Extension" />
+  <img src="https://img.shields.io/badge/WebAssembly-654FF0?style=for-the-badge&logo=webassembly&logoColor=white" alt="WebAssembly" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62E" alt="Vite" />
+</p>
 
-## Project Overview
-Cognivue is designed to help professionals and students understand their deep work habits and manage cognitive fatigue. It merges local webcam-based attention mapping with active browser telemetry to provide deep focus analytics and personalized AI-generated coaching recommendations.
-
-### The Problem
-Traditional productivity trackers are either invasive (recording screenshots, logging keystrokes) or superficial (measuring total active time on an app). They fail to answer how focused a user actually was, ignore posture drift and visual fatigue, and pose severe security risks by uploading raw video streams or personal content to the cloud.
-
-### The Solution
-Cognivue processes raw biometric telemetry entirely inside the browser's local sandbox using client-side WebAssembly models. The local vision layer is coupled with a lightweight browser extension that logs productivity categories locally, syncing only sanitized numerical scores to the backend server. No camera feeds, screenshots, or page content are ever sent to a server.
-
----
-
-## Key Features
-
-1. Real-time Cognitive Monitoring
-   - Live gaze tracking (on-screen vs. off-screen detection).
-   - Fatigue indexing derived from blink rate fluctuations and eye-opening ratios.
-   - Real-time posture calibration and slouch alerts using MediaPipe.
-   
-2. Privacy-First Local Webcam Processing
-   - WebAssembly execution sandboxes webcam analysis locally.
-   - Scans camera feeds at 30 FPS inside the browser and outputs only raw numerical metrics.
-   
-3. Browser Extension Activity Awareness
-   - A Manifest V3 background service worker mapping current domains to productivity categories.
-   - Pause/resume toggle and flicker-free connection key link mapping.
-   
-4. Sessions History & Analytics
-   - Scalable session logging capturing deep-work stats, blink summaries, and productivity index consistency.
-   - Interactive charts visualization showing focus index and fatigue over time.
-
-5. AI Insights & Recommendations
-   - Hybrid machine learning algorithms analyzing focus/fatigue correlations.
-   - Personalized coaching insights and burnout prevention suggestions.
-
-6. Account & Security Flows
-   - Robust display profile controls and complete data elimination flows (account purge).
+<p align="center">
+  <a href="https://github.com/somiya-namdeo/Cognivue"><img src="https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Repository" /></a>
+  <a href="https://www.linkedin.com/in/somiya-namdeo-/"><img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn" /></a>
+  <a href="https://cognivue-kappa.vercel.app"><img src="https://img.shields.io/badge/Frontend_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Frontend Demo" /></a>
+  <a href="https://cognivue-rmlz.onrender.com"><img src="https://img.shields.io/badge/Backend_API-46E3B7?style=for-the-badge&logo=render&logoColor=white" alt="Backend API" /></a>
+</p>
 
 ---
 
-## Tech Stack
+## 1. Why I Built Cognivue
+Traditional productivity tools fall into two distinct paradigms, both with significant engineering and ethical shortcomings:
+1. **Superficial Timers:** Basic stopwatches (like Pomodoro apps) that track elapsed time but have zero contextual awareness of actual cognitive focus or visual fatigue.
+2. **Invasive Bossware:** Corporate spyware that uploads screenshots, logs DOM keystrokes, and records raw webcam streams to the cloud, violating user privacy and creating massive data liability.
 
-* Frontend: React, TypeScript, Vite, Tailwind CSS, Framer Motion, Recharts
-* Backend: Python, FastAPI, Supabase client SDK
-* Database & Auth: Supabase PostgreSQL, Supabase Auth, Row-Level Security (RLS)
-* Vision & AI: MediaPipe FaceMesh WebAssembly library, hybrid Python analytics services
-* Browser Integration: Chrome Extension API (Manifest V3)
-* Hosting: Vercel (Frontend), Render (Backend)
+**Cognivue** was built to solve this. It provides deep biometric analytics (gaze tracking, blink-rate analysis, posture drift) to measure genuine focus, but it does so entirely **on-device**. By utilizing WebAssembly (via MediaPipe) to sandbox computer vision models within the browser, raw video frames never leave the user's machine.
 
----
-## Module Documentation
+## 2. Engineering Goals
+- **Local Inference:** All facial landmark detection must happen on the client machine.
+- **Privacy-First:** The backend should only receive anonymized scalar values (e.g., `focus_score: 85`), never raw images or DOM content.
+- **Low Latency UI:** Ensure the React dashboard remains responsive while continuously processing 30 FPS webcam frames.
+- **Modular Architecture:** Separate the browser monitoring extension from the computer vision client and the analytics backend.
 
-- Frontend Dashboard Docs → [frontend/README.md](./frontend/README.md)
-- Backend API Docs → [backend/README.md](./backend/README.md)
-- Chrome Extension Docs → [extension/README.md](./extension/README.md)
+## 3. Technology Selection
 
----
+| Technology | Purpose | Reason for Selection | Trade-offs |
+|------------|---------|----------------------|------------|
+| **React** | Frontend UI | Component-driven architecture easily handles complex, dynamic charting dashboards. | Larger bundle size compared to vanilla JS or Svelte. |
+| **FastAPI** | Backend API | High-performance Python framework with built-in Pydantic schema validation. | Requires separate hosting from the frontend, unlike Next.js API routes. |
+| **Supabase** | Database & Auth | Managed PostgreSQL with Row-Level Security (RLS) ensures tenant isolation. | Vendor lock-in to Supabase-specific Auth and PostgREST APIs. |
+| **MediaPipe** | Computer Vision | Provides a highly accurate 468-point FaceMesh model compiled to WebAssembly. | High CPU utilization on the main thread compared to native OS binaries. |
+| **Manifest V3** | Extension API | Modern Chrome extension standard with service workers for background tasks. | Stricter background execution limits require careful telemetry intervals. |
 
-## Architecture Overview
+## 4. System Architecture
+Cognivue is a distributed system consisting of decoupled components that communicate asynchronously.
 
-The Cognivue monorepo consists of four core building blocks:
+```mermaid
+graph TD
+    subgraph Client [Client-Side (Local Browser)]
+        A[React SPA] -->|requestAnimationFrame| B(MediaPipe FaceMesh Wasm)
+        C[Webcam] -->|MediaStream| B
+        B -->|Landmarks| A
+        D[Chrome Extension] -->|chrome.storage| E(Background Service Worker)
+    end
 
-```
-                          ┌───────────────────────────┐
-                          │     Chrome Toolbar HUD    │
-                          │   (Manifest V3 Companion) │
-                          └─────────────┬─────────────┘
-                                        │ Telemetry Heartbeats
-                                        ▼ (POST /extension/activity)
-┌──────────────────────┐  Inference     ┌───────────────────────────┐
-│    Local Webcam      ├───────────────►│    React Frontend App     │
-│  (MediaPipe Mesh)    │  Gaze/Posture  │    (Dashboard & Charts)   │
-└──────────────────────┘                └─────────────┬─────────────┘
-                                                      │ REST API Requests
-                                                      ▼
-┌──────────────────────┐  Real-time Sync┌───────────────────────────┐
-│     Supabase DB      │◄───────────────┤    Python FastAPI App     │
-│   (Postgres RLS)     │  SQL Operations│     (Analytics Service)   │
-└──────────────────────┘                └───────────────────────────┘
+    subgraph Backend [Cloud Infrastructure]
+        F[FastAPI Service]
+        G[(Supabase PostgreSQL)]
+    end
+
+    A -->|POST /metrics/add| F
+    E -->|POST /extension/activity| F
+    F -->|Analytics Queries| G
+    F -->|AI Insights Generation| F
 ```
 
-1. Frontend Dashboard: A single-page React app rendering live progress meters, historical session analysis charts, and settings.
-2. FastAPI Backend: Python microservices serving session control endpoints, telemetry sync collection, and insights engine calculations.
-3. Chrome Extension Companion: Lives in the browser toolbar, tracking active tab focus, domain category matches, and connection heartbeats.
-4. Supabase Database: Houses profiles, focus sessions, metrics, browser categories, and account records securely using RLS policies.
+- **React SPA:** Hosts the MediaPipe FaceMesh model, rendering the webcam stream to an off-screen `<video>` element, and computes focus heuristics locally.
+- **Chrome Extension:** A Manifest V3 background service worker that polls the active tab's domain and categorizes it (e.g., Development, Social).
+- **FastAPI Backend:** A REST API that ingests time-series telemetry from the React SPA and the Extension, and aggregates it into user sessions.
+- **Supabase Database:** Persists telemetry data and utilizes RLS to ensure users can only query their own session records.
+
+## 5. End-to-End Data Flow
+
+```mermaid
+sequenceDiagram
+    participant Cam as Webcam
+    participant MP as MediaPipe (Wasm)
+    participant UI as React UI (Refs)
+    participant API as FastAPI
+    participant DB as Supabase
+
+    Cam->>MP: 30 FPS Raw Video Stream
+    MP->>UI: 468 3D Facial Landmarks
+    UI->>UI: Compute EAR (Blinks), Gaze, Posture
+    UI->>UI: Store in React Mutable Refs
+    loop Every 5 Seconds
+        UI->>API: POST /metrics/add (focus, fatigue, posture)
+        API->>DB: Insert Telemetry Row
+    end
+```
+
+## 6. Privacy Pipeline
+Cognivue guarantees privacy through an absolute isolation boundary between local memory and the network layer.
+- **Raw Frames:** Captured via `navigator.mediaDevices.getUserMedia` directly into the DOM `<video>` tag.
+- **Landmarks:** MediaPipe extracts 3D coordinate arrays within the browser's WebAssembly sandbox.
+- **Metrics:** React math functions convert coordinates into scalar heuristics (e.g., `eye_open_ratio = 0.28`).
+- **Sanitized Values:** Only integers and Enums (`focus_score`, `gaze_status = 'On Screen'`) cross the network boundary to the FastAPI backend.
+- **Zero-Image Guarantee:** No frame buffer or base64 image string is ever serialized into an HTTP request.
+
+## 7. Browser Extension Architecture
+The Manifest V3 extension avoids invasive DOM injection (Content Scripts are minimal/non-existent for tracking).
+- **Domain Polling:** The background service worker listens to `chrome.tabs.onActivated` and `chrome.tabs.onUpdated` to extract only the URL hostname.
+- **Categorization:** A static local ruleset maps domains (e.g., `github.com`) to productivity categories (`Development`).
+- **Telemetry Sync:** The extension maintains its own HTTP connection to the FastAPI backend, bypassing the React frontend, allowing tracking to continue even if the React dashboard is minimized.
+
+## 8. AI Pipeline
+The computer vision pipeline distills raw landmarks into actionable focus scores:
+1. **Facial Landmarks:** 468 points mapped to the user's face.
+2. **Blink Detection:** Computes the Eye Aspect Ratio (EAR) between eyelid coordinates. Calibrates a baseline over the first 30 frames. A drop below 72% of the baseline registers as a blink.
+3. **Gaze Estimation:** If the face bounding box is undetected for >1.5 seconds, gaze shifts to `Off Screen`.
+4. **Fatigue Score:** Increases if the smoothed blink rate exceeds 25 blinks/min or if average EAR remains low.
+5. **Focus Score:** A capped integer (0-100). If fatigue crosses 80%, the maximum possible focus score is artificially capped at 65, reflecting cognitive limits.
+
+## 9. Database Design (Supabase)
+The database enforces tenant isolation using PostgreSQL Row-Level Security (RLS).
+
+| Table | Primary Responsibility | RLS Strategy |
+|-------|------------------------|--------------|
+| `users` | Auth mapping and profile state. | `auth.uid() == id` |
+| `sessions` | Start/end timestamps for deep work blocks. | `auth.uid() == user_id` |
+| `telemetry_metrics`| Time-series logs of focus, fatigue, and posture. | `auth.uid() == user_id` |
+| `extension_activity`| Time-series logs of domain usage. | `auth.uid() == user_id` |
+
+## 10. Folder Structure
+
+```text
+cognivue/
+├── frontend/             # React SPA (Vite)
+│   ├── src/components/   # UI components (e.g., BrowserCVMonitor.tsx)
+│   ├── src/pages/        # Route views
+│   └── src/services/     # API fetch wrappers
+├── backend/              # Python FastAPI service
+│   └── app/
+│       ├── database.py   # Supabase client initialization
+│       ├── routes/       # API route controllers
+│       ├── schemas/      # Pydantic validation models
+│       └── services/     # Business logic and database operations
+├── extension/            # Chrome Manifest V3 Extension
+│   ├── background.js     # Background domain tracking
+│   └── manifest.json     # Permissions and configuration
+└── docs/                 # Project documentation and screenshots
+```
+
+## 11. API Overview
+The backend exposes RESTful endpoints grouped by domain:
+- **Authentication:** Token validation and user synchronization.
+- **Sessions:** `POST /session/start`, `POST /session/end` for managing work blocks.
+- **Telemetry:** `POST /metrics/add` (receives 5-second polling data from React).
+- **Extension:** `POST /extension/activity` (receives active domain data).
+- **Insights:** `GET /insights/daily` (aggregates time-series data into summary statistics).
+
+## 12. Engineering Challenges
+
+### Challenge 1: Main Thread UI Stuttering
+- **Problem:** Running MediaPipe FaceMesh at 30 FPS inside a React component caused severe UI stuttering, as state updates triggered React re-renders on every frame.
+- **Why it happened:** Storing frame-by-frame metrics (like `focus_score`) in React `useState` hooks forced the entire DOM tree to reconcile 30 times a second.
+- **Solution:** Moved all high-frequency computer vision state into mutable `useRef` objects. The `requestAnimationFrame` loop updates the refs directly without triggering React renders. A separate `setInterval` hook polls the refs every 5 seconds to send telemetry to the backend.
+- **Trade-offs:** The UI does not instantly reflect millisecond-level changes in focus, but this is acceptable since cognitive state is a macroscopic metric.
+- **Outcome:** The dashboard maintains a smooth 60 FPS while the computer vision model processes at native webcam speeds.
+
+### Challenge 2: Blink Detection Stability in Variable Lighting
+- **Problem:** In low-light conditions, the webcam feed became noisy, causing the Eye Aspect Ratio (EAR) calculation to fluctuate rapidly. This resulted in false-positive "blinks."
+- **Why it happened:** A hardcoded EAR threshold (e.g., `< 0.2`) failed when users sat at different distances from the camera or under shadows.
+- **Solution:** Implemented a dynamic baseline calibration. For the first 30 frames of a session, the app calculates an average EAR. A blink is only registered if the current EAR drops below 72% of that specific session's baseline, combined with a temporal hysteresis lock (preventing double-counting within 200ms).
+- **Trade-offs:** Requires the user to face the camera neutrally for the first 1-2 seconds of a session.
+- **Outcome:** Significantly reduced false positives across different lighting environments.
+
+### Challenge 3: Extension Background Service Worker Sleeping
+- **Problem:** The Manifest V3 Chrome extension would stop tracking domains after the user left the browser idle.
+- **Why it happened:** Manifest V3 strictly enforces service worker lifecycles, terminating background scripts after ~5 minutes of inactivity to save RAM.
+- **Solution:** Relied heavily on `chrome.storage.local` to persist the active domain state and start times. When the worker wakes up via `chrome.tabs.onUpdated` events, it reconstructs the elapsed time accurately from storage rather than relying on in-memory variables.
+- **Trade-offs:** Slightly more complex state management and asynchronous storage reads compared to Manifest V2 persistent background pages.
+- **Outcome:** Reliable, battery-friendly domain tracking that survives worker terminations.
+
+## 13. Engineering Decisions
+
+- **Why Supabase over standard PostgreSQL + SQLAlchemy?** 
+  To reduce backend boilerplate. Supabase provides out-of-the-box JWT authentication and Row-Level Security, allowing the FastAPI backend to act purely as an analytics engine rather than an ORM CRUD wrapper.
+- **Why Local Inference over Cloud Vision APIs?**
+  Privacy. Sending 30 frames per second to a cloud API (like AWS Rekognition) is prohibitively expensive, introduces severe network latency, and violates user trust by exposing raw biometric feeds.
+- **Why Polling Telemetry instead of WebSockets?**
+  REST polling every 5 seconds was chosen over WebSockets because focus analytics do not require sub-second real-time delivery to the database. Polling is stateless, handles network drops gracefully, and scales horizontally much easier than maintaining persistent WebSocket connections.
+
+## 14. Performance Considerations
+- **Mutable Refs for CV Data:** React `useRef` is used exclusively for 30 FPS inference data to bypass the Virtual DOM reconciliation pipeline entirely.
+- **Pydantic Validation:** The FastAPI backend utilizes strictly typed Pydantic schemas, ensuring invalid telemetry payloads are rejected at the edge before hitting the database.
+- **Debounced Storage Writes:** The Chrome extension throttles writes to `chrome.storage.local` to prevent I/O bottlenecks during rapid tab switching.
+
+## 15. Security Architecture
+- **Row Level Security (RLS):** All database reads and writes enforce `auth.uid() == user_id`, meaning a compromised API endpoint cannot be exploited to leak other users' data.
+- **JWT Verification:** FastAPI validates the cryptographic signature of the Supabase-issued JWT via middleware before accepting telemetry payloads.
+- **Extension Sandbox:** The Chrome extension operates strictly on the `tabs` permission to read URLs. It deliberately excludes `<all_urls>` host permissions and content scripts, ensuring it cannot scrape sensitive DOM content (e.g., passwords or private messages).
+
+## 16. Project Limitations
+- **Browser Bound:** MediaPipe execution is limited by the V8 JavaScript engine's WebAssembly performance, which consumes more CPU than a native OS desktop application.
+- **Environmental Constraints:** Severe backlighting or wearing heavy sunglasses will degrade facial landmark tracking confidence.
+- **Single-Device Restriction:** Telemetry is currently designed for single-device sessions; parallel sessions on a laptop and a desktop simultaneously are not merged dynamically.
+
+## 17. Lessons Learned
+- **Web Workers vs. Main Thread:** While `requestAnimationFrame` on the main thread was manageable for MediaPipe FaceMesh using `useRef`, moving inference to a dedicated Web Worker (OffscreenCanvas) would further isolate CPU spikes from UI animations. This is a critical architectural consideration for future iterations.
+- **State Management in Manifest V3:** Designing for ephemeral background scripts requires a completely different mental model than standard Node.js daemons, prioritizing robust persistence over in-memory state.
+
+## 18. Future Roadmap
+- **Desktop Daemon:** Porting the extension functionality to a Rust daemon for cross-browser, OS-level window tracking.
+- **Web Worker Offloading:** Refactoring the React computer vision pipeline to execute inside a Web Worker to achieve 0% main thread blocking.
+- **Enhanced ML Analytics:** Adding localized sentiment analysis heuristics based on facial expression landmarks.
 
 ---
 
-## Screenshots
+## 19. Screenshots
+> _Note: Ensure the local development server is running to view live streams._
 
-### Landing Page
-![Landing Page](docs/screenshots/landing-page.png)
+| Dashboard | AI Insights |
+|-----------|-------------|
+| ![Dashboard Overview](docs/screenshots/dashboard-overview.png) | ![AI Insights](docs/screenshots/ai-insights-overview.png) |
 
-### Authentication
-![Login Page](docs/screenshots/login-page.png)
-![Register Page](docs/screenshots/register-page.png)
+| Live Monitoring | History |
+|-----------------|---------|
+| ![Live Monitoring](docs/screenshots/live-monitoring.png) | ![Session History](docs/screenshots/session-history.png) |
 
-### Main Dashboard
-![Dashboard Overview](docs/screenshots/dashboard-overview.png)
+## 20. Setup Instructions
 
-### Live Vision Monitoring
-![Live Monitoring](docs/screenshots/live-monitoring.png)
-
-### AI Cognitive Insights
-![AI Insights Overview](docs/screenshots/ai-insights-overview.png)
-![AI Insights Graphs](docs/screenshots/ai-insights-graphs.png)
-![AI Recommendations](docs/screenshots/ai-insights-recommendations.png)
-
-### Historical Sessions
-![Session History](docs/screenshots/session-history.png)
-
-### Browser Extension
-![Browser Extension](docs/screenshots/browser-extension.png)
-
-### Security & Privacy
-![Settings Privacy](docs/screenshots/settings-privacy.png)
-
----
-
-## Setup Instructions
-
-Ensure Node.js (v18+) and Python (v3.10+) are installed.
-
-### 1. Clone the Repository
 ```bash
+# 1. Clone repository
 git clone https://github.com/somiya-namdeo/Cognivue.git
 cd Cognivue
-```
 
-### 2. Setup the FastAPI Backend
-```bash
+# 2. Start Backend (Requires Python 3.10+)
 cd backend
 python -m venv venv
-# Windows venv activation
-.\venv\Scripts\activate
-# Linux/macOS venv activation
-# source venv/bin/activate
-
+# Windows: .\venv\Scripts\activate | Mac/Linux: source venv/bin/activate
 pip install -r requirements.txt
-# Copy environment variables and fill secrets
-cp .env.example .env
+cp .env.example .env # Configure Supabase keys
 uvicorn app.main:app --reload
-```
 
-### 3. Setup the React Frontend
-```bash
+# 3. Start Frontend (Requires Node 18+)
 cd ../frontend
 npm install
-# Copy environment variables and configure URL
 cp .env.example .env
 npm run dev
+
+# 4. Extension
+# Load the /extension folder as an unpacked extension in chrome://extensions
 ```
 
-### 4. Load the Chrome Extension
-1. Open Google Chrome and go to `chrome://extensions`.
-2. Turn on Developer mode in the top-right toggle.
-3. Click Load unpacked and select the `/extension` directory of this cloned repository.
-4. Open the web dashboard, go to the Extension page, copy your connection key, and paste it into the toolbar extension popup to link it.
-
----
-
-## Environment Variables Overview
-
-### Backend (/backend/.env)
-```ini
-SUPABASE_URL=your_supabase_project_endpoint_url
-SUPABASE_ANON_KEY=your_supabase_anonymous_api_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_private_service_role_key
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-FRONTEND_URL=http://localhost:5173
-```
-
-### Frontend (/frontend/.env)
-```ini
-VITE_API_BASE_URL=http://127.0.0.1:8000
-```
-
----
-
-## Deployment
-
-### Frontend (Vercel)
-The React dashboard is optimized for Vercel deployment. Add VITE_API_BASE_URL pointing to your hosted API and run:
-```bash
-vercel --prod
-```
-
-### Backend (Render)
-FastAPI can be deployed easily on Render as a Web Service. Specify:
-* Build Command: pip install -r requirements.txt
-* Start Command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-* Add your Supabase keys and FRONTEND_URL in Render's environment dashboard.
-
----
-
-## Privacy Guarantee
-* No Camera Uploads: Facial landmarks mesh processing runs inside web workers locally in your browser sandbox. The raw webcam images never touch the network or are stored.
-* Non-invasive Logging: Keystrokes, search forms, page content, and window details are ignored. The companion extension only logs top-level domain names and duration.
-
----
-
-## Future Enhancements
-* Automated break-nudging desktop native notifications.
-* Focus profile customizations matching different ADHD study needs.
-* Native Windows/macOS background activity category managers.
-
----
-
-## Author & Collaboration
-
-Designed, engineered, and maintained by Somiya Namdeo.
-
-I am highly open to collaborating on cognitive intelligence systems, local WebAssembly model optimizations, or premium developer tools.
-
-* Connect on LinkedIn: [Somiya Namdeo](https://www.linkedin.com/in/somiya-namdeo-/)
-* Send an Email: [namdeosomiya@gmail.com](mailto:namdeosomiya@gmail.com)
-* Collaboration & Opportunities: If you are a recruiter, developer, or researcher looking to scale, integrate, or build upon Cognivue, feel free to open an Issue, submit a Pull Request, or reach out directly!
+## 21. Author
+**Somiya Namdeo**
+Software Engineer passionate about local-first AI, privacy, and scalable web architectures.
+- [LinkedIn](https://www.linkedin.com/in/somiya-namdeo-/)
+- [Email](mailto:namdeosomiya@gmail.com)
