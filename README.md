@@ -23,6 +23,15 @@
 
 ---
 
+## 🚀 Live Deployments
+
+| Service | Live URL |
+|---------|----------|
+| **Frontend Web App** | [https://cognivue-kappa.vercel.app/](https://cognivue-kappa.vercel.app/) |
+| **Backend REST API** | [https://cognivue-rmlz.onrender.com](https://cognivue-rmlz.onrender.com) |
+
+---
+
 ## 1. Project Introduction
 
 ![Cognivue Landing Page](./docs/screenshots/landing-page.png)
